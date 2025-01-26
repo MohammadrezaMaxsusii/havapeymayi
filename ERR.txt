@@ -1,0 +1,67 @@
+
+****************************
+[Errno -8] Servname not supported for ai_socktype
+****************************
+[Errno -8] Servname not supported for ai_socktype
+****************************
+[Errno -8] Servname not supported for ai_socktype
+****************************
+Authentication failed: transport shut down or saw EOF
+****************************
+timed out
+****************************
+timed out
+****************************
+Authentication failed: transport shut down or saw EOF
+****************************
+timed out
+****************************
+timed out
+****************************
+Authentication failed: transport shut down or saw EOF
+****************************
+Authentication failed: transport shut down or saw EOF
+****************************
+Authentication failed: transport shut down or saw EOF
+****************************
+Authentication failed: transport shut down or saw EOF
+****************************
+timed out
+****************************
+Authentication failed: transport shut down or saw EOF
+****************************
+'ipddress'
+****************************
+'ipddress'
+****************************
+'ipddress'
+****************************
+'ipddress'
+****************************
+'ipddress'
+****************************
+'ipddress'
+****************************
+'ipddress'
+****************************
+'ipddress'
+****************************
+'ipddress'
+****************************
+'ipddress'
+****************************
+'ipddress'
+****************************
+'ipddress'
+****************************
+'ipddress'
+****************************
+Unable to connect to 192.168.1.4: [Errno 113] No route to host
+****************************
+Unable to connect to 192.168.1.4: [Errno 113] No route to host
+****************************
+Unable to connect to 192.168.1.4: [Errno 113] No route to host
+****************************
+Unable to connect to 192.168.1.4: [Errno 113] No route to host
+****************************
+Unable to connect to 192.168.1.4: [Errno 113] No route to host
