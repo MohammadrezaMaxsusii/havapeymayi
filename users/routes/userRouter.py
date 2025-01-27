@@ -10,24 +10,23 @@ from users.dto.createUser import CreateUserDto
 from db.database import conn as DbConnection
 from db.database import dbData
 from shared.functions.uid_generator import generate_uid
+from shared.functions.uid_generator import generate_password
 from shared.functions.sendSMS import sendSMS 
 from shared.functions.sendSMS import smsTemplate
 router = APIRouter()
 # userRepo = UserRepository()
 from db.database import create_ssha_password
-from ldap3 import Server, Connection, ALL, SUBTREE, MODIFY_REPLACE
+from ldap3 import Server, Connection, ALL, SUBTREE, MODIFY_REPLACE ,MODIFY_ADD
 import hashlib
 import base64
 @router.post("/create", response_model=SuccessResponseDto)
 def createUser(data: CreateUserDto):
 
     this_uid = generate_uid()
+    this_password = generate_password()
     search_filter=f"(&(objectClass=person)(|(uid={this_uid})(telephoneNumber={data.phoneNumber})))"  
-
     search = DbConnection.search(dbData.get('BASE_DN'), search_filter, SUBTREE, attributes=['cn', 'uid',  'telephoneNumber'])  
 
-    # for entry in search:
-    #     print(entry['telephoneNumber'])
     if  search:
         raise HTTPException(400, detail="نام کاربری تکراری است")
     else:
@@ -37,19 +36,29 @@ def createUser(data: CreateUserDto):
             "cn": data.name,
             "sn": data.lastName,
             "uid":this_uid,
-            "userPassword": create_ssha_password(data.password),
+            "userPassword": create_ssha_password(this_password),
             "telephoneNumber" : data.phoneNumber,
-            "uidNumber": "1000",  # Use a unique number for each user
-            "gidNumber": "1000",  # Group ID (default group)
+            "uidNumber": str(this_uid),  
+            "gidNumber": "500",  
             "homeDirectory": f"/home/{this_uid}",
         }
-        sendSMS(data.phoneNumber,smsTemplate(this_uid,data.password))
         DbConnection.add(user_dn, attributes=user_attributes)
-        
+        group_dn = f"cn=netUsers,ou=users,{dbData.get('BASE_DN')}"
+        DbConnection.modify(group_dn ,{'memberUid': [(MODIFY_ADD, [this_uid])]})
+        sendSMS(data.phoneNumber,smsTemplate(this_uid,this_password))
+
+
         return{
             "data": True,
             "message": "کاربر با موفقیت ایجاد شد"
         }
+# @router.post("/forgaetPassword", response_model=SuccessResponseDto)
+# def forgetPassword(username: str):
+#     search_filter=f"(&(objectClass=person)(|(uid={username})))"
+#     search = DbConnection.search(dbData.get('BASE_DN'), search_filter, SUBTREE, attributes=['cn', 'uid',  'telephoneNumber'])  
+
+#     if  search:
+        
 
 
     # if user is None:
