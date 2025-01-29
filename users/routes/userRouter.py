@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException , Request, Depends
 from auth.dto.request.login import LoginDto
 from auth.dto.request.register import RegisterDto
 from auth.functions.create_token import create_access_token
@@ -13,12 +13,54 @@ from shared.functions.uid_generator import generate_uid
 from shared.functions.uid_generator import generate_password
 from shared.functions.sendSMS import sendSMS 
 from shared.functions.sendSMS import smsTemplate
+from users.functions.userInfo import get_oauth_token
+from users.functions.userInfo import get_user_info
+from users.functions.userInfo import find_user_by_national_code
 router = APIRouter()
 # userRepo = UserRepository()
 from db.database import create_ssha_password
 from ldap3 import Server, Connection, ALL, SUBTREE, MODIFY_REPLACE ,MODIFY_ADD
 import hashlib
 import base64
+import jwt 
+from pydantic import BaseModel
+from starlette.responses import RedirectResponse
+import configparser
+config = configparser.ConfigParser()
+config.read("config.ini")
+OAUTH_URL = config.get("mycao", "OAUTH_URL")
+CLIENT_ID = config.get("mycao", "CLIENT_ID")
+CLIENT_SECRET = config.get("mycao", "CLIENT_SECRET")
+REDIRECT_URI = config.get("mycao", "REDIRECT_URI")
+
+@router.get("/login")
+def login_redirect():
+    login_url = (f"{OAUTH_URL}/openidauthorize?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}" 
+                 "&scope=openid profile&response_type=code&claims={\"id_token\":{\"phone_number\":null}}")
+    return RedirectResponse(login_url)
+
+@router.get("/redirect")
+def redirect(request: Request):
+    code = request.query_params.get("code")
+    if not code:
+        return {"error": "Authorization code not found"}
+    
+    token_data = get_oauth_token(code)
+    if "access_token" not in token_data:
+        return {"error": "Failed to retrieve access token"}
+    
+    id_token = token_data.get("id_token")
+    decoded_token = jwt.decode(id_token, options={"verify_signature": False})
+    if decoded_token.get("aud") != CLIENT_ID:
+        return {"error": "Invalid token audience"}
+    
+    user_info = get_user_info(token_data["access_token"])
+    if "preferred_username" in user_info:
+        user = find_user_by_national_code(user_info["preferred_username"])
+        if user:
+            return {"message": "User logged in", "user": user}
+        return {"error": "User not found"}
+    return {"error": "Invalid user info"}
 @router.post("/create", response_model=SuccessResponseDto)
 def createUser(data: CreateUserDto):
 
@@ -52,6 +94,9 @@ def createUser(data: CreateUserDto):
             "data": True,
             "message": "کاربر با موفقیت ایجاد شد"
         }
+    
+
+
 # @router.post("/forgaetPassword", response_model=SuccessResponseDto)
 # def forgetPassword(username: str):
 #     search_filter=f"(&(objectClass=person)(|(uid={username})))"
