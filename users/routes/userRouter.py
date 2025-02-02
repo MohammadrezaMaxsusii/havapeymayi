@@ -26,41 +26,81 @@ import jwt
 from pydantic import BaseModel
 from starlette.responses import RedirectResponse
 import configparser
+import requests
+import urllib.parse
+import jwt
 config = configparser.ConfigParser()
+
 config.read("config.ini")
 OAUTH_URL = config.get("mycao", "OAUTH_URL")
 CLIENT_ID = config.get("mycao", "CLIENT_ID")
 CLIENT_SECRET = config.get("mycao", "CLIENT_SECRET")
 REDIRECT_URI = config.get("mycao", "REDIRECT_URI")
-
-@router.get("/login")
+SSO_LOGIN_URL = config.get("mycao", "SSO_LOGIN_URL")
+USER_INFO_URL = config.get("mycao", "USER_INFO_URL")
+@router.get("/sso_login")
 def login_redirect():
-    login_url = (f"{OAUTH_URL}/openidauthorize?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}" 
-                 "&scope=openid profile&response_type=code&claims={\"id_token\":{\"phone_number\":null}}")
-    return RedirectResponse(login_url)
+    login_url = (f"{SSO_LOGIN_URL}?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&scope=openid profile&response_type=code&claims="+'{"id_token":{"phone_number":null}}"')
+    # login_url = REDIRECT_URI
+    result = RedirectResponse(login_url , status_code=302)
 
-@router.get("/redirect")
+    return RedirectResponse(login_url , status_code=302)
+
+@router.get("/sso_redirect")
 def redirect(request: Request):
     code = request.query_params.get("code")
     if not code:
-        return {"error": "Authorization code not found"}
-    
-    token_data = get_oauth_token(code)
+        return {"error": "No code provided"}
+    token_url = f"{OAUTH_URL}/api/v1/oauth/token?grant_type=authorization_code&code={code}&redirect_uri={REDIRECT_URI}&client_id={CLIENT_ID}&client_secret={CLIENT_SECRET}"
+
+
+   
+    token_response = requests.post(
+        token_url,
+            # data={
+            #     "grant_type": "authorization_code",
+            #     "code": code,
+            #     "redirect_uri": REDIRECT_URI,
+            #     "client_id": CLIENT_ID,
+            #     "client_secret": CLIENT_SECRET,
+            # },
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+       
+        )
+
+
+    token_data = token_response.json()
+    # print(token_data)
     if "access_token" not in token_data:
-        return {"error": "Failed to retrieve access token"}
-    
+        return {"error": "Failed to get access token"}
+
+    access_token = token_data.get("access_token")
+   
     id_token = token_data.get("id_token")
-    decoded_token = jwt.decode(id_token, options={"verify_signature": False})
-    if decoded_token.get("aud") != CLIENT_ID:
-        return {"error": "Invalid token audience"}
+    decodedTokenId = jwt.decode(id_token, options={"verify_signature": False})
+    if decodedTokenId.get("aud") == CLIENT_ID:
+        phone_number = decodedTokenId.get("phone_number")
+    else :
+        return
+
+    userinfo_response = requests.get(
+        USER_INFO_URL,
+        headers={"Authorization": f"Bearer {access_token}"},
+        verify=False
+    )
+
+    userinfo = userinfo_response.json()
+    print(userinfo_response.json())
+    national_code = userinfo.get("preferred_username")
     
-    user_info = get_user_info(token_data["access_token"])
-    if "preferred_username" in user_info:
-        user = find_user_by_national_code(user_info["preferred_username"])
-        if user:
-            return {"message": "User logged in", "user": user}
-        return {"error": "User not found"}
-    return {"error": "Invalid user info"}
+    if not national_code:
+        return {"error": "No national_code found in userinfo"}
+
+    # بررسی کاربر در دیتابیس
+    return{
+            "data": phone_number,
+            "message": "کاربر با موفقیت ایجاد شد"
+}
 @router.post("/create", response_model=SuccessResponseDto)
 def createUser(data: CreateUserDto):
 
