@@ -47,7 +47,7 @@ USER_INFO_URL = config.get("mycao", "USER_INFO_URL")
 def login_redirect():
     login_url = (f"{SSO_LOGIN_URL}?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&scope=openid profile&response_type=code&claims="+'{"id_token":{"phone_number":null}}"')
     # login_url = REDIRECT_URI
-    result = RedirectResponse(login_url , status_code=302)
+    # result = RedirectResponse(login_url , status_code=302)
 
     return RedirectResponse(login_url , status_code=302)
 
@@ -102,7 +102,11 @@ def redirect(request: Request):
         return {"error": "No national_code found in userinfo"}
 
     # بررسی کاربر در دیتابیس
-    return RedirectResponse("http://localhost:5173" , status_code=302)
+    return RedirectResponse("http://localhost:5173" , 302)
+#     return{
+#             "data": phone_number,
+#             "message": "کاربر با موفقیت ایجاد شد"
+# }
 
 
 @router.get("/login")
@@ -140,7 +144,6 @@ def redirect(request: Request):
 
 @router.post("/create", response_model=SuccessResponseDto)
 def createUser(data: CreateUserDto):
-
     this_uid = generate_uid()
     this_password = generate_password()
     this_phoneNumber = ensure_phone_number(data.phoneNumber)
@@ -158,8 +161,8 @@ def createUser(data: CreateUserDto):
         user_dn = f"uid={this_uid},ou=users,{dbData.get('BASE_DN')}"
         user_attributes = {
             "objectClass": ["inetOrgPerson", "posixAccount", "top"],
-            "cn": data.name,
-            "sn": data.lastName,
+            "cn": 'fname', #FIXXXXXXXXXXXXXXXX MEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
+            "sn": 'lname', #FIXXXXXXXXXXXXXXXX MEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
             "uid": this_uid,
             "userPassword": create_ssha_password(this_password),
             "telephoneNumber": this_phoneNumber,
@@ -171,7 +174,6 @@ def createUser(data: CreateUserDto):
         group_dn = f"cn=netUsers,ou=users,{dbData.get('BASE_DN')}"
         DbConnection.modify(group_dn, {"memberUid": [(MODIFY_ADD, [this_uid])]})
         sendSMS(this_phoneNumber, smsTemplate(this_uid, this_password))
-
         return {"data": True, "message": "کاربر با موفقیت ایجاد شد"}
 
     # @router.post("/forgaetPassword", response_model=SuccessResponseDto)
@@ -210,7 +212,6 @@ def createUser(data: CreateUserDto):
         "data": True,
         "message": "ورود با موفقیت انجام شد",
     }
-
 
 # @router.post("/register", response_model=SuccessResponseDto)
 # def register(data: RegisterDto):

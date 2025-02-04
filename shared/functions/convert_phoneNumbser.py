@@ -15,19 +15,20 @@ persian_to_english = {
 
 
 def persianDigitToEnglish(digit: str) -> str:
-    return persian_to_english.get(digit, None)
+    return persian_to_english.get(digit, '')
 
 
 def ensure_phone_number(phone_number: str) -> str:
     good_number = ""
-
+    return phone_number.strip()
+    print(phone_number, type(phone_number))
     for char in phone_number:
         if char.isdigit():
             good_number += char
 
         elif char not in persian_to_english:
             raise HTTPException(400, "شماره تلفن وارد شده صحیح نیست")
-
+        print(char)
         good_number += persianDigitToEnglish(char)
 
     return good_number
