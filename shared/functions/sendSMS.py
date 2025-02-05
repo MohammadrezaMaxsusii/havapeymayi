@@ -15,3 +15,11 @@ def smsTemplate(username , password):
 """
     final_sms = sms_template.format(username=username, password=password)
     return final_sms
+
+def otpSmsTemplate(otp:str):
+    sms_template =  """
+    هواپیمایی کشور
+    کد محرمانه، در اختیار دیگران قرار ندهید:
+    {otp}
+"""
+    return sms_template.format(otp=otp)
