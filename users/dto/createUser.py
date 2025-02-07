@@ -12,3 +12,8 @@ class SendOTPDto(BaseModel):
 @dataclass(frozen=True)
 class ForgetPasswordDto(BaseModel):
     otp:str
+    phoneNumber: str
+@dataclass(frozen=True)
+class captchaDto(BaseModel):
+    captchaId:str
+    captchaText: str

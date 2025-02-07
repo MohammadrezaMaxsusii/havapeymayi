@@ -1,9 +1,10 @@
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import Response
 from shared.dto.response.api_responseDto import SuccessResponseDto
 from shared.functions.generate_otp import generate_otp
 from shared.functions.convert_phoneNumbser import ensure_phone_number
 from redis_handler.redis import *
-from users.dto.createUser import CreateUserDto, SendOTPDto, ForgetPasswordDto
+from users.dto.createUser import CreateUserDto, SendOTPDto, ForgetPasswordDto , captchaDto
 from db.database import conn as DbConnection
 from db.database import dbData
 from shared.functions.uid_generator import generate_uid
@@ -14,14 +15,15 @@ from users.functions.userInfo import get_oauth_token
 from users.functions.userInfo import get_user_info
 from users.functions.userInfo import find_user_by_national_code
 from db.database import create_ssha_password
-from ldap3 import SUBTREE, MODIFY_ADD
+from ldap3 import SUBTREE, MODIFY_ADD , MODIFY_REPLACE
 import jwt
 from starlette.responses import RedirectResponse
 import configparser
 import requests
 import json
+import uuid
 from shared.functions.calculate_remaining_redis_ttl import seconds_until_midnight
-
+from shared.functions.capchaGenerator import generate_captcha_text, generate_captcha_image
 config = configparser.ConfigParser()
 router = APIRouter()
 
@@ -155,19 +157,20 @@ def createUser(data: CreateUserDto):
 @router.post("/sendOTP", response_model=SuccessResponseDto)
 def sendOTP(data: SendOTPDto):
     OTP_KEY = OTP_PREFIX + data.phoneNumber
-
+    GET_USERNAME_BY_CELLPHONE_KEY = "username_of" + data.phoneNumber + ':'
     if redis_get_value(OTP_KEY)['status']:
         raise HTTPException(400, "لطفا برای درخواست مجدد کد یکبار مصرف کمی صبر کنید")
     
-    search_filter = f"(&(objectClass=person)(|(uid={data.username})(telephoneNumber={data.phoneNumber})))"
+    search_filter = f"(&(objectClass=person)(&(uid={data.username})(telephoneNumber={data.phoneNumber})))"
     search = DbConnection.search(
         dbData.get("BASE_DN"),
         search_filter,
         SUBTREE,
         attributes=["cn", "uid", "telephoneNumber"],
     )   
-    # if not "caa" in data.username:
-    #     raise HTTPException (404 , "مشخصات شما به عنوان کارمند تعریف نشده است")
+    redis_set_value(GET_USERNAME_BY_CELLPHONE_KEY, data.username, 120)
+    if not "caa" in data.username:
+        raise HTTPException (404 , "مشخصات شما به عنوان کارمند تعریف نشده است")
     if  not search:
         raise HTTPException (404 , "مشخصات شما به عنوان کارمند تعریف نشده است")
 
@@ -182,33 +185,42 @@ def sendOTP(data: SendOTPDto):
     }
     
 @router.post("/forgetPassword", response_model=SuccessResponseDto)
-def sendOTP(data: ForgetPasswordDto):
+def forgetPassword(data: ForgetPasswordDto):
     OTP_KEY = OTP_PREFIX + data.phoneNumber
+    GET_USERNAME_BY_CELLPHONE_KEY = "username_of" + data.phoneNumber + ':'
 
-    if redis_get_value(OTP_KEY)['status']:
-        raise HTTPException(400, "لطفا برای درخواست مجدد کد یکبار مصرف کمی صبر کنید")
-    
-    search_filter = f"(&(objectClass=person)(|(uid={data.username})(telephoneNumber={data.phoneNumber})))"
-    search = DbConnection.search(
-        dbData.get("BASE_DN"),
-        search_filter,
-        SUBTREE,
-        attributes=["cn", "uid", "telephoneNumber"],
-    )
-    
-    if not "caa" in data.username:
-        raise HTTPException (404 , "مشخصات شما به عنوان کارمند تعریف نشده است")
-    
-    if  not search:
-        raise HTTPException (404 , "مشخصات شما به عنوان کارمند تعریف نشده است")
-
-    this_otp = generate_otp()
-    
-    redis_set_value(OTP_KEY, this_otp, 120)
-    sendSMS(data.phoneNumber, otpSmsTemplate(this_otp))
-    
-    return {
-        "message": "کد یکبار مصرف برای شما ارسال شد",
-        "data": True
+    if not redis_get_value(OTP_KEY)['status']:
+        raise HTTPException(400, "کد معتبر نیست")
+    this_uid = redis_get_value(GET_USERNAME_BY_CELLPHONE_KEY)["value"]
+    print(this_uid)
+    redis_del_value(OTP_KEY)
+    this_password = generate_password()
+    user_dn = f"uid={this_uid},ou=users,{dbData.get('BASE_DN')}"
+    DbConnection.modify(user_dn, {"userPassword": [(MODIFY_REPLACE, [create_ssha_password(this_password)])]})
+    sendSMS(data.phoneNumber , smsTemplate(this_uid , this_password))
+    return{
+        "message"  : "نام کاربری و رمز عبور برای شما ارسال گردید"
     }
+
+@router.get("/captcha" , response_model=SuccessResponseDto)
+def captcha():
+    captcha_text = generate_captcha_text()
+    captcha_id = str(uuid.uuid4())
     
+    redis_set_value(f"captcha:{captcha_id}", captcha_text, ttl=300)
+
+    image_io = generate_captcha_image(captcha_text)
+
+    headers = {"X-Captcha-Id": captcha_id}  
+    return Response(content=image_io.getvalue(), media_type="image/png", headers=headers)
+@router.post("/validate_captcha", response_model=SuccessResponseDto)
+def validate_captcha(data:captchaDto):
+    stored_captcha = redis_get_value(f"captcha:{data.captchaId}")
+    print(stored_captcha)
+    print(data.captchaText) 
+    if stored_captcha and stored_captcha['value'] == data.captchaText:
+        # redis_del_value(f"captcha:{data.captchaId}")
+    
+        return {"success": True, "message": "کپچا صحیح است!"}
+    raise HTTPException(status_code=400, detail="کپچا اشتباه است یا منقضی شده!")
+
