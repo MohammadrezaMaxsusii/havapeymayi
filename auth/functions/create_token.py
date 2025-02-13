@@ -1,17 +1,13 @@
 import jwt
 from datetime import datetime, timedelta
-from typing import Optional
-import configparser
 
+from shared.functions.shareConfFile import getConfigFile
 
-config = configparser.ConfigParser()
-config.read("config.ini")
+JWT_SECRET = getConfigFile("jwt", "JWT_SECRET")
 
-JWT_SECRET = config.get("jwt", "JWT_SECRET")
+JWT_ALGORITHM = getConfigFile("jwt", "JWT_ALGORITHM")
 
-JWT_ALGORITHM = config.get("jwt", "JWT_ALGORITHM")
-
-JWT_ACCESS_TOKEN_EXPIRE_IN_SECONDS = config.get(
+JWT_ACCESS_TOKEN_EXPIRE_IN_SECONDS = getConfigFile(
     "jwt", "JWT_ACCESS_TOKEN_EXPIRE_IN_SECONDS"
 )
 
