@@ -176,7 +176,7 @@ def createUser(data: CreateUserDto):
         )
         sendSMS(this_phoneNumber, smsTemplate(this_uid, this_password))
         return {"data": True, "message": "کاربر با موفقیت ایجاد شد"}
-
+    return {"data": True, "message": "کاربر با موفقیت ایجاد شد"}
 
 @router.post("/sendOTP", response_model=SuccessResponseDto)
 def sendOTP(data: SendOTPDto):
@@ -251,3 +251,7 @@ def validate_captcha(data: captchaDto):
 
         return {"success": True, "message": "کپچا صحیح است!"}
     raise HTTPException(status_code=400, detail="کپچا اشتباه است یا منقضی شده!")
+
+@router.get("/test", response_model=SuccessResponseDto)
+def test():
+    return {"success": True, "message": "کپچا صحیح است!"}
