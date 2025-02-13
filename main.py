@@ -4,38 +4,35 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from shared.functions.shareConfFile import getConfigFile
 from fastapi.middleware.cors import CORSMiddleware
-
+from middleware.responseFormatter import  IPFilterMiddleware
 from seeder.seeder import seeder
-
+ipfilter = IPFilterMiddleware
 app = FastAPI()
+origins = [
+    "https://www.example.com",
+    "https://example.com",
+		"https://api.example.com"
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    # allow_credentials=True,
-    allow_methods=["*"],
+    # allow_origins=getConfigFile("acl" , "ALLOWEDHOSTS").split(","),
+    allow_origins = origins,
+    allow_credentials=True,
+    allow_methods=["POST", "GET"],
     allow_headers=["*"],
+    max_age=3600,
 )
 
 # app.add_middleware(
 #     TrustedHostMiddleware,
-#     ALLOWEDHOSTS = getConfigFile("acl" , "ALLOWEDHOSTS").split(","),
+#     allowed_hosts = getConfigFile("acl" , "ALLOWEDHOSTS").split(","),
 # )
-ALLOWED_IPS = getConfigFile ("acl" , "ALLOWEDIPS").split(",")
 
-class IPFilterMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        forwarded = request.headers.get("X-Forwarded-For")
-        client_ip = forwarded.split(",")[0] if forwarded else request.client.host
 
-        print(f"Client IP: {client_ip}")  
 
-        if client_ip not in ALLOWED_IPS:
-            return Response("Access denied", status_code=403)
 
-        return await call_next(request)
-
-app.add_middleware(IPFilterMiddleware)
+app.add_middleware(ipfilter)
 app.include_router(api_router)
 
 seeder()

@@ -2,10 +2,10 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from starlette.middleware.base import BaseHTTPMiddleware
-
+from shared.functions.shareConfFile import getConfigFile
 
 app = FastAPI()
-ALLOWED_IPS = {"192.168.1.1", "203.0.113.42", "127.0.0.1"}
+ALLOWED_IPS = getConfigFile ("acl" , "ALLOWEDIPS").split(",")
 
 @app.middleware('http')
 def responseFormatterMiddleware(request: Request, call_next):
@@ -26,4 +26,3 @@ class IPFilterMiddleware(BaseHTTPMiddleware):
         if client_ip not in ALLOWED_IPS:
             return Response("Access denied", status_code=403)
         return await call_next(request)
-app.add_middleware(IPFilterMiddleware)

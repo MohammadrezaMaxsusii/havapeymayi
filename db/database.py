@@ -1,26 +1,25 @@
 
-import configparser
+
 from ldap3 import Server, Connection, ALL, SUBTREE, MODIFY_REPLACE , MODIFY_ADD
 import hashlib
 import base64
+from shared.functions.shareConfFile import getConfigFile
 
-config = configparser.ConfigParser()
-config.read("config.ini")
-DB_HOST = config.get("database", "DB_HOST")
+DB_HOST = getConfigFile("database", "DB_HOST")
 
-DB_PORT = config.get("database", "DB_PORT")
+DB_PORT = getConfigFile("database", "DB_PORT")
 
-DB_NAME = config.get("database", "DB_NAME")
+DB_NAME = getConfigFile("database", "DB_NAME")
 
-DB_USER = config.get("database", "DB_USER")
+DB_USER = getConfigFile("database", "DB_USER")
 
-DB_PASSWORD = config.get("database", "DB_PASSWORD")
+DB_PASSWORD = getConfigFile("database", "DB_PASSWORD")
 
 LDAP_SERVER = f"ldap://{DB_HOST}:{DB_PORT}"
 ADMIN_DN = f"cn=admin,dc={DB_USER},dc=com"
 ADMIN_PASSWORD = DB_PASSWORD
 BASE_DN = f"dc={DB_USER},dc=com"
-GROUP_NAME = "netUser"
+
 server = Server(LDAP_SERVER, get_info=ALL)
 conn = Connection(server, ADMIN_DN, ADMIN_PASSWORD, auto_bind=True)
 
@@ -53,8 +52,8 @@ def add_organizational_unit(ou_name):
         print(f"Organizational Unit {ou_name} already exists.")
 
 
-def add_user(uid, first_name, last_name, password, email , phone):
-    group_dn = f"cn={GROUP_NAME},ou=users,{BASE_DN}"
+def add_user(uid, first_name, last_name, password, email , phone , goupName):
+    group_dn = f"cn={goupName},ou=users,{BASE_DN}"
     user_dn = f"uid={uid},ou=users,{BASE_DN}"
     if not conn.search(user_dn, "(objectclass=*)", SUBTREE):
         user_attributes = {
@@ -64,16 +63,17 @@ def add_user(uid, first_name, last_name, password, email , phone):
             "uid": uid,
             "mail": email,
             "userPassword": create_ssha_password(password),
-            "uidNumber": "1000",  # Use a unique number for each user
-            "gidNumber": "1000",  # Group ID (default group)
+            "uidNumber": "1000", 
+            "gidNumber": "1000",  
             "homeDirectory": f"/home/{uid}",
             "telephoneNumber" : phone
         }
+        conn.add(user_dn, attributes=user_attributes)
         print("user Added successfully")
-        add_user_to_group(group_dn , uid)
+        add_user_to_group(group_dn , uid )
     else:
         print(f"User {uid} already exists.")
-def add_user_to_group( group_dn, user_uid):
+def add_user_to_group( group_dn, user_uid ):
     """
     Add a user to a group in LDAP by modifying the memberUid attribute.
     """
@@ -84,15 +84,15 @@ def add_user_to_group( group_dn, user_uid):
         print(f"User '{user_uid}' added to group '{group_dn}' successfully!")
     else:
         print(f"Failed to add user to group ")
-def add_group():
-    group_dn = f"cn={GROUP_NAME},ou=users,{BASE_DN}"
+def add_group(groupName , gidNumber):
+    group_dn = f"cn={groupName},ou=users,{BASE_DN}"
     group_attributes = {
         'objectClass': ["top" , "posixGroup"],  # Use 'posixGroup' if required
-        'cn': GROUP_NAME,
-        'gidNumber' : '500'
+        'cn': groupName,
+        'gidNumber' : gidNumber
     }
     if conn.add(group_dn, attributes=group_attributes):
-        print(f"Group '{GROUP_NAME}' added successfully!")
+        print(f"Group '{groupName}' added successfully!")
     else:
         print(f"group already exist ")
 def createOpenLdapSchema():
@@ -100,6 +100,8 @@ def createOpenLdapSchema():
     add_base_dn()
     
     add_organizational_unit("users")
-    add_group()
-    # add_user("0001", "محمدرضا", "مخصوصی", "1234", "jdoe@example.com" , "09123456788")
+    add_group("netUsers" , "1000")
+    add_group("vpnUsers" , "1001")
+    # add_user("0002", "محمدرضا", "مخصوصی", "1234", "jdoe@example.com" , "09123456788" , "netUsers")
+
     # conn.unbind()

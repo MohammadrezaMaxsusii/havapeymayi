@@ -32,7 +32,7 @@ from shared.functions.capchaGenerator import (
     generate_captcha_text,
     generate_captcha_image,
 )
-
+from users.functions.userInfo import add_user_to_group , add_user
 config = configparser.ConfigParser()
 router = APIRouter()
 
@@ -112,71 +112,102 @@ def redirect(request: Request):
 
 
 @router.post("/create", response_model=SuccessResponseDto)
-def createUser(data: CreateUserDto):
-
-    REQUEST_LIMIT_KEY = CREATE_USER_REQUEST_LIMIT_KEY_PREFIX + data.phoneNumber
-    GUEST_USER_EXISTS_KEY = GUEST_USER_EXISTS_KEY_PREFIX + data.phoneNumber
-    GET_USER_INFO_KEY = GET_USER_INFO_KEY_PREFIX + data.phoneNumber
-
-    try:
-        user_info_from_sso = json.loads(redis_get_value(GET_USER_INFO_KEY)["value"])
-
-    except:
-        raise HTTPException(404, detail="شماره تلفن وارد شده تطابق ندارد")
-
-    if redis_get_value(REQUEST_LIMIT_KEY)["status"]:
-        raise HTTPException(429, detail="لطفا کمی صبر کنید")
-    else:
-        redis_set_value(REQUEST_LIMIT_KEY, 1, 5)
-
-    this_uid = generate_uid()
-    this_password = generate_password()
-    this_phoneNumber = ensure_phone_number(data.phoneNumber)
-
-    search_filter = f"(&(objectClass=person)(|(uid={this_uid})(telephoneNumber={this_phoneNumber})))"
-
+def createUser(data: CreateUserDto ):
+    #1 ساخت یوزر در ldap 
+    
+#     #1.1 بررسی داپلیکت کاربر
+    search_filter = f"(&(objectClass=person)(|(uid={data.id})))"
+    search = DbConnection.search(
+    dbData.get("BASE_DN"),
+    search_filter,
+    SUBTREE,
+    attributes=["uid"],
+    )
+    if  search :
+        raise HTTPException(400, "کاربری با این مشخصات قبلا ثبت شده است")
+    search_filter_template = "(cn={})"
+    search_filter = search_filter_template.format(data.groupName)
     search = DbConnection.search(
         dbData.get("BASE_DN"),
         search_filter,
         SUBTREE,
-        attributes=["cn", "uid", "telephoneNumber"],
+        attributes=["gidNumber"],
     )
+    gid_number = DbConnection.entries[0].gidNumber.value
+    this_password = generate_password()
+    this_uid = generate_uid()
+    add_user(data.id,create_ssha_password(this_password) , data.groupName,gid_number , this_uid)
 
-    if search and redis_get_value(GUEST_USER_EXISTS_KEY)["status"]:
-        user_data = redis_get_value(GUEST_USER_EXISTS_KEY)["value"]
-        user_data = json.loads(user_data)
-        sendSMS(
-            this_phoneNumber,
-            smsTemplate(user_data.get("username"), user_data.get("password")),
-        )
-    else:
-        user_info_from_sso = json.loads(redis_get_value(GET_USER_INFO_KEY)["value"])
+    return {
+        "data":gid_number
+    }
+    #2 ذخیره کاربر در reddis
+    # 3 ارسال پیامک به کاربر
+    sendSMS(data.phoneNumber, smsTemplate(data.id, this_password))
+    
+    # REQUEST_LIMIT_KEY = CREATE_USER_REQUEST_LIMIT_KEY_PREFIX + data.phoneNumber
+    # GUEST_USER_EXISTS_KEY = GUEST_USER_EXISTS_KEY_PREFIX + data.phoneNumber
+    # GET_USER_INFO_KEY = GET_USER_INFO_KEY_PREFIX + data.phoneNumber
 
-        user_dn = f"uid={this_uid},ou=users,{dbData.get('BASE_DN')}"
-        user_attributes = {
-            "objectClass": ["inetOrgPerson", "posixAccount", "top"],
-            "cn": this_uid,
-            "sn": user_info_from_sso.get("last_name")
-            + " "
-            + user_info_from_sso.get("first_name"),
-            "uid": this_uid,
-            "userPassword": create_ssha_password(this_password),
-            "telephoneNumber": this_phoneNumber,
-            "uidNumber": str(this_uid),
-            "gidNumber": "500",
-            "homeDirectory": f"/home/{this_uid}",
-        }
-        DbConnection.add(user_dn, attributes=user_attributes)
-        group_dn = f"cn=netUsers,ou=users,{dbData.get('BASE_DN')}"
-        DbConnection.modify(group_dn, {"memberUid": [(MODIFY_ADD, [this_uid])]})
-        redis_set_value(
-            GUEST_USER_EXISTS_KEY,
-            json.dumps({"username": this_uid, "password": this_password}),
-            seconds_until_midnight(),
-        )
-        sendSMS(this_phoneNumber, smsTemplate(this_uid, this_password))
-        return {"data": True, "message": "کاربر با موفقیت ایجاد شد"}
-    return {"data": True, "message": "کاربر با موفقیت ایجاد شد"}
+    # try:
+    #     user_info_from_sso = json.loads(redis_get_value(GET_USER_INFO_KEY)["value"])
+
+    # except:
+    #     raise HTTPException(404, detail="شماره تلفن وارد شده تطابق ندارد")
+
+    # if redis_get_value(REQUEST_LIMIT_KEY)["status"]:
+    #     raise HTTPException(429, detail="لطفا کمی صبر کنید")
+    # else:
+    #     redis_set_value(REQUEST_LIMIT_KEY, 1, 5)
+
+    # this_uid = generate_uid()
+    # this_password = generate_password()
+    # this_phoneNumber = ensure_phone_number(data.phoneNumber)
+
+    # search_filter = f"(&(objectClass=person)(|(uid={this_uid})(telephoneNumber={this_phoneNumber})))"
+
+    # search = DbConnection.search(
+    #     dbData.get("BASE_DN"),
+    #     search_filter,
+    #     SUBTREE,
+    #     attributes=["cn", "uid", "telephoneNumber"],
+    # )
+
+    # if search and redis_get_value(GUEST_USER_EXISTS_KEY)["status"]:
+    #     user_data = redis_get_value(GUEST_USER_EXISTS_KEY)["value"]
+    #     user_data = json.loads(user_data)
+    #     sendSMS(
+    #         this_phoneNumber,
+    #         smsTemplate(user_data.get("username"), user_data.get("password")),
+    #     )
+    # else:
+    #     user_info_from_sso = json.loads(redis_get_value(GET_USER_INFO_KEY)["value"])
+
+    #     user_dn = f"uid={this_uid},ou=users,{dbData.get('BASE_DN')}"
+    #     user_attributes = {
+    #         "objectClass": ["inetOrgPerson", "posixAccount", "top"],
+    #         "cn": this_uid,
+    #         "sn": user_info_from_sso.get("last_name")
+    #         + " "
+    #         + user_info_from_sso.get("first_name"),
+    #         "uid": this_uid,
+    #         "userPassword": create_ssha_password(this_password),
+    #         "telephoneNumber": this_phoneNumber,
+    #         "uidNumber": str(this_uid),
+    #         "gidNumber": "500",
+    #         "homeDirectory": f"/home/{this_uid}",
+    #     }
+    #     DbConnection.add(user_dn, attributes=user_attributes)
+    #     group_dn = f"cn=netUsers,ou=users,{dbData.get('BASE_DN')}"
+    #     DbConnection.modify(group_dn, {"memberUid": [(MODIFY_ADD, [this_uid])]})
+    #     redis_set_value(
+    #         GUEST_USER_EXISTS_KEY,
+    #         json.dumps({"username": this_uid, "password": this_password}),
+    #         seconds_until_midnight(),
+    #     )
+    #     sendSMS(this_phoneNumber, smsTemplate(this_uid, this_password))
+    #     return {"data": True, "message": "کاربر با موفقیت ایجاد شد"}
+    # return {"data": True, "message": "کاربر با موفقیت ایجاد شد"}
 
 @router.post("/sendOTP", response_model=SuccessResponseDto)
 def sendOTP(data: SendOTPDto):
@@ -252,6 +283,6 @@ def validate_captcha(data: captchaDto):
         return {"success": True, "message": "کپچا صحیح است!"}
     raise HTTPException(status_code=400, detail="کپچا اشتباه است یا منقضی شده!")
 
-@router.get("/test", response_model=SuccessResponseDto)
+@router.put("/test", response_model=SuccessResponseDto)
 def test():
     return {"success": True, "message": "کپچا صحیح است!"}
