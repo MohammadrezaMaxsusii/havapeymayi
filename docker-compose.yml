@@ -1,0 +1,25 @@
+version: "3"
+
+services:
+  openldap:
+    image: osixia/openldap:1.5.0
+    container_name: openldap
+    restart: always
+    environment:
+      LDAP_ORGANISATION: "Douran"
+      LDAP_DOMAIN: "douran.com"
+      LDAP_ADMIN_PASSWORD: "P@ssw0rd"
+    ports:
+      - "389:389"
+
+  phpldapadmin:
+    image: osixia/phpldapadmin:latest
+    container_name: phpldapadmin
+    restart: always
+    environment:
+      PHPLDAPADMIN_LDAP_HOSTS: "openldap"
+      PHPLDAPADMIN_HTTPS: "false"
+    ports:
+      - "8080:80"
+    depends_on:
+      - openldap
