@@ -2,7 +2,7 @@ from fastapi import FastAPI , Request , Response
 from router import routes as api_router
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
-# from db.database import engine, Base
+from shared.functions.shareConfFile import getConfigFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from seeder.seeder import seeder
@@ -16,22 +16,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# Base.metadata.create_all(bind=engine)
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=["example.com", "*.myapi.com", "localhost"],
-)
-ALLOWED_IPS = {"192.168.1.1", "203.0.113.42"}
+
+# app.add_middleware(
+#     TrustedHostMiddleware,
+#     ALLOWEDHOSTS = getConfigFile("acl" , "ALLOWEDHOSTS").split(","),
+# )
+ALLOWED_IPS = getConfigFile ("acl" , "ALLOWEDIPS").split(",")
 
 class IPFilterMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         forwarded = request.headers.get("X-Forwarded-For")
         client_ip = forwarded.split(",")[0] if forwarded else request.client.host
 
-        print(f"🔍 Client IP: {client_ip}")  # نمایش IP کلاینت برای دیباگ
+        print(f"Client IP: {client_ip}")  
 
         if client_ip not in ALLOWED_IPS:
-            return Response("🚫 Access denied", status_code=403)
+            return Response("Access denied", status_code=403)
 
         return await call_next(request)
 
