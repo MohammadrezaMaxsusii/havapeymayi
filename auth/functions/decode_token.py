@@ -1,12 +1,10 @@
 import jwt
-import configparser
+from shared.functions.shareConfFile import getConfigFile
 
-config = configparser.ConfigParser()
-config.read("config.ini")
 
-JWT_SECRET = config.get("jwt", "JWT_SECRET")
+JWT_SECRET = getConfigFile("jwt", "JWT_SECRET")
 
-JWT_ALGORITHM = config.get("jwt", "JWT_ALGORITHM")
+JWT_ALGORITHM = getConfigFile("jwt", "JWT_ALGORITHM")
 
 
 def decode_access_token(token: str):
