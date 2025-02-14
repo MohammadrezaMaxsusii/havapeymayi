@@ -10,7 +10,6 @@ from users.dto.createUser import (
     ForgetPasswordDto,
     captchaDto,
     updateUserDto,
-    
 )
 from db.database import conn as DbConnection
 from db.database import dbData
@@ -22,7 +21,7 @@ from users.functions.userInfo import get_oauth_token
 from users.functions.userInfo import get_user_info
 from users.functions.userInfo import find_user_by_national_code
 from db.database import create_ssha_password
-from ldap3 import SUBTREE, MODIFY_ADD, MODIFY_REPLACE , MODIFY_DELETE
+from ldap3 import SUBTREE, MODIFY_ADD, MODIFY_REPLACE, MODIFY_DELETE
 import jwt
 from starlette.responses import RedirectResponse
 import configparser
@@ -34,8 +33,9 @@ from shared.functions.capchaGenerator import (
     generate_captcha_text,
     generate_captcha_image,
 )
-from users.functions.userInfo import add_user_to_group , add_user , update_cn
-from shared.functions.getDNs import getUserDN , getGroupDN
+from users.functions.userInfo import add_user_to_group, add_user, update_cn
+from shared.functions.getDNs import getUserDN, getGroupDN
+
 config = configparser.ConfigParser()
 router = APIRouter()
 
@@ -53,6 +53,7 @@ CREATE_USER_REQUEST_LIMIT_KEY_PREFIX = "CREATE_USER_REQUEST_LIMIT_KEY:"
 GUEST_USER_EXISTS_KEY_PREFIX = "GUEST_USER_EXISTS_KEY:"
 GET_USER_INFO_KEY_PREFIX = "GET_USER_INFO_KEY:"
 OTP_PREFIX = "OTP_KEY:"
+EACH_USER_SESSION_EXP_KEY = "USER_EXP:"
 
 
 @router.get("/sso_login")
@@ -115,18 +116,18 @@ def redirect(request: Request):
 
 
 @router.post("/create", response_model=SuccessResponseDto)
-def createUser(data: CreateUserDto ):
-    #1 ساخت یوزر در ldap 
-    
-#     #1.1 بررسی داپلیکت کاربر
+def createUser(data: CreateUserDto):
+    # 1 ساخت یوزر در ldap
+
+    #     #1.1 بررسی داپلیکت کاربر
     search_filter = f"(&(objectClass=person)(|(uid={data.id})))"
     search = DbConnection.search(
-    dbData.get("BASE_DN"),
-    search_filter,
-    SUBTREE,
-    attributes=["uid"],
+        dbData.get("BASE_DN"),
+        search_filter,
+        SUBTREE,
+        attributes=["uid"],
     )
-    if  search :
+    if search:
         raise HTTPException(400, "کاربری با این مشخصات قبلا ثبت شده است")
     search_filter_template = "(cn={})"
     search_filter = search_filter_template.format(data.groupName)
@@ -139,10 +140,16 @@ def createUser(data: CreateUserDto ):
     gid_number = DbConnection.entries[0].gidNumber.value
     this_password = generate_password()
     this_uid = generate_uid()
-    add_user(data.id,create_ssha_password(this_password) , data.groupName,gid_number , this_uid , data.phoneNumber)
+    add_user(
+        data.id,
+        create_ssha_password(this_password),
+        data.groupName,
+        gid_number,
+        this_uid,
+        data.phoneNumber,
+    )
 
-
-    #2 ذخیره کاربر در reddis
+    # 2 ذخیره کاربر در reddis
     REQUEST_LIMIT_KEY = CREATE_USER_REQUEST_LIMIT_KEY_PREFIX + data.id
     GUEST_USER_EXISTS_KEY = GUEST_USER_EXISTS_KEY_PREFIX + data.id
     GET_USER_INFO_KEY = GET_USER_INFO_KEY_PREFIX + data.id
@@ -150,10 +157,7 @@ def createUser(data: CreateUserDto ):
     userInfo = redis_get_value(GET_USER_INFO_KEY)
     # 3 ارسال پیامک به کاربر
     # sendSMS(data.phoneNumber, smsTemplate(data.id, this_password))
-    return {
-        "data":userInfo
-    }
-
+    return {"data": userInfo}
 
     # try:
     #     user_info_from_sso = json.loads(redis_get_value(GET_USER_INFO_KEY)["value"])
@@ -214,6 +218,7 @@ def createUser(data: CreateUserDto ):
     #     sendSMS(this_phoneNumber, smsTemplate(this_uid, this_password))
     #     return {"data": True, "message": "کاربر با موفقیت ایجاد شد"}
     # return {"data": True, "message": "کاربر با موفقیت ایجاد شد"}
+
 
 @router.post("/sendOTP", response_model=SuccessResponseDto)
 def sendOTP(data: SendOTPDto):
@@ -289,13 +294,15 @@ def validate_captcha(data: captchaDto):
         return {"success": True, "message": "کپچا صحیح است!"}
     raise HTTPException(status_code=400, detail="کپچا اشتباه است یا منقضی شده!")
 
+
 @router.put("/test", response_model=SuccessResponseDto)
 def test():
     return {"success": True, "message": "کپچا صحیح است!"}
 
-@router.post("/updateUserInfo" ,response_model=SuccessResponseDto )
-def updateUserInfo(data: updateUserDto ):
-    #به روز رسانی زمان استفاده کاربر در reddiss mobin
+
+@router.post("/updateUserInfo", response_model=SuccessResponseDto)
+def updateUserInfo(data: updateUserDto):
+    # به روز رسانی زمان استفاده کاربر در reddiss mobin
     search_filter_template = "(cn={})"
     search_filter = search_filter_template.format(data.groupName)
     search = DbConnection.search(
@@ -306,47 +313,61 @@ def updateUserInfo(data: updateUserDto ):
     )
     newGidNumber = DbConnection.entries[0].gidNumber.value
     print(newGidNumber)
-    search_filter = f'(uid={data.id})'
-    DbConnection.search(dbData.get("BASE_DN"), search_filter, attributes=['telephoneNumber', 'cn', 'userPassword' ])
+    search_filter = f"(uid={data.id})"
+    DbConnection.search(
+        dbData.get("BASE_DN"),
+        search_filter,
+        attributes=["telephoneNumber", "cn", "userPassword"],
+    )
     if not DbConnection.entries:
-            raise HTTPException(status_code=404, detail="کاربر با این مشخصات یافت نشد")
+        raise HTTPException(status_code=404, detail="کاربر با این مشخصات یافت نشد")
     user_dn = DbConnection.entries[0].entry_dn
     changes = {}
     if data.phoneNumber:
-        changes['telephoneNumber'] = [(MODIFY_REPLACE, [data.phoneNumber])]
-    
-    search_filter = f'(memberUid={data.id})'
-    DbConnection.search(dbData.get("BASE_DN"), search_filter, attributes=['cn'])
+        changes["telephoneNumber"] = [(MODIFY_REPLACE, [data.phoneNumber])]
+
+    search_filter = f"(memberUid={data.id})"
+    DbConnection.search(dbData.get("BASE_DN"), search_filter, attributes=["cn"])
     thisPassword = generate_password()
-    changes['userPassword'] = [(MODIFY_REPLACE, [thisPassword])]
+    changes["userPassword"] = [(MODIFY_REPLACE, [thisPassword])]
     new_group_dn = ""
     for entry in DbConnection.entries:
         old_group_dn = entry.entry_dn
         new_group_dn = update_cn(old_group_dn, data.groupName)
-        
-        if  DbConnection.modify(old_group_dn, {'memberUid': [(MODIFY_DELETE, [data.id])]}):
-            user_search_filter = f'(uid={data.id})'
-            DbConnection.search(dbData.get("BASE_DN"), user_search_filter, attributes=['gidNumber'])
+
+        if DbConnection.modify(
+            old_group_dn, {"memberUid": [(MODIFY_DELETE, [data.id])]}
+        ):
+            user_search_filter = f"(uid={data.id})"
+            DbConnection.search(
+                dbData.get("BASE_DN"), user_search_filter, attributes=["gidNumber"]
+            )
             print(DbConnection.entries)
             if not DbConnection.entries:
                 print(f"User '{data.id}' not found!")
             user_dn = DbConnection.entries[0].entry_dn
             print(user_dn)
-            if DbConnection.modify(user_dn, {'gidNumber': [(MODIFY_REPLACE, [str(newGidNumber)])]}):
-                print(f"User '{data.id}' gidNumber changed to '{newGidNumber}' successfully!")
+            if DbConnection.modify(
+                user_dn, {"gidNumber": [(MODIFY_REPLACE, [str(newGidNumber)])]}
+            ):
+                print(
+                    f"User '{data.id}' gidNumber changed to '{newGidNumber}' successfully!"
+                )
             # return True
             # return False
-            
-            
-    if DbConnection.modify(new_group_dn, {'memberUid': [(MODIFY_ADD, [data.id])]}):
-            print(f"User '{data.id}' moved to group '{new_group_dn}' successfully!")
+
+    if DbConnection.modify(new_group_dn, {"memberUid": [(MODIFY_ADD, [data.id])]}):
+        print(f"User '{data.id}' moved to group '{new_group_dn}' successfully!")
     if changes:
         DbConnection.modify(user_dn, changes)
         # sendSMS(data.phoneNumber, smsTemplate(data.id, thisPassword))
-        if DbConnection.result['description'] != 'success':
-            raise HTTPException(status_code=500, detail=f"Failed to update user: {DbConnection.result['description']}")
-    
-    #ارسال اس ام اس به کاربر مجدد با پسورد جدید
+        if DbConnection.result["description"] != "success":
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to update user: {DbConnection.result['description']}",
+            )
+
+    # ارسال اس ام اس به کاربر مجدد با پسورد جدید
     # search_filter = f'(uid={user_update.user_id})'
     # search_filter = search_filter_template.format(data.groupName)
     # print(search_filter)
@@ -359,12 +380,9 @@ def updateUserInfo(data: updateUserDto ):
     # gid_number = DbConnection.entries[0].gidNumber.value
     # userDN = getUserDN(data.id)
     # changes = {'gidNumber': [(MODIFY_REPLACE, [gid_number])]}
-    
-    #مشکل بررسی شود
-    
 
-        
-        
+    # مشکل بررسی شود
+
     # if DbConnection.modify(userDN, changes):
     #     return {"data": True, "message": "اطلاعات کاربر با موفقیت به روز رسانی گردید"}
     return {"success": True, "message": "کپچا صحیح است!"}
