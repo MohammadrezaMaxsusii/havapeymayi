@@ -34,3 +34,8 @@ class updateUserDto(BaseModel):
     expDate: int
     groupName: str
     phoneNumber: str
+
+
+@dataclass(frozen=True)
+class deleteUserDto(BaseModel):
+    id: str
