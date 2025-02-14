@@ -9,6 +9,7 @@ from users.dto.createUser import (
     SendOTPDto,
     ForgetPasswordDto,
     captchaDto,
+    deleteUserDto,
     updateUserDto,
 )
 from db.database import conn as DbConnection
@@ -17,6 +18,7 @@ from shared.functions.uid_generator import generate_uid
 from shared.functions.uid_generator import generate_password
 from shared.functions.sendSMS import sendSMS
 from shared.functions.sendSMS import smsTemplate, otpSmsTemplate
+from users.functions.get_groups_of_user import get_group_of_user
 from users.functions.userInfo import get_oauth_token
 from users.functions.userInfo import get_user_info
 from users.functions.userInfo import find_user_by_national_code
@@ -386,3 +388,30 @@ def updateUserInfo(data: updateUserDto):
     # if DbConnection.modify(userDN, changes):
     #     return {"data": True, "message": "اطلاعات کاربر با موفقیت به روز رسانی گردید"}
     return {"success": True, "message": "کپچا صحیح است!"}
+
+
+@router.post("/delete", response_model=SuccessResponseDto)
+def delete(data: deleteUserDto):
+    search_filter = f"(&(objectClass=person)(|(uid={data.id})))"
+    search = DbConnection.search(
+        dbData.get("BASE_DN"),
+        search_filter,
+        SUBTREE,
+        attributes=["uid"],
+    )
+
+    if not search:
+        raise HTTPException(404, "کاربر پیدا نشد")
+
+    # now delete user from group
+    groupName = get_group_of_user(data.id)
+
+    groupDN = f"cn={groupName},ou=users,{dbData.get('BASE_DN')}"
+    changes = {"memberUid": [(MODIFY_DELETE, [data.id])]}
+    DbConnection.modify(groupDN, changes)
+
+    # then delete user
+    userDN = getUserDN(data.id)
+    DbConnection.delete(userDN)
+
+    return {"data": True, "message": "کاربر با موفقیت حذف شد"}
