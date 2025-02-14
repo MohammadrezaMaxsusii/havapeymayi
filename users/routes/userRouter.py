@@ -125,7 +125,7 @@ def redirect(request: Request):
 
 
 @router.post("/create", response_model=SuccessResponseDto)
-def createUser(data: CreateUserDto):
+def createUser(data: CreateUserDto, payload: dict = Depends(user_is_admin_or_error)):
     # 1 ساخت یوزر در ldap
 
     #     #1.1 بررسی داپلیکت کاربر
@@ -311,7 +311,9 @@ def test():
 
 
 @router.post("/updateUserInfo", response_model=SuccessResponseDto)
-def updateUserInfo(data: updateUserDto):
+def updateUserInfo(
+    data: updateUserDto, payload: dict = Depends(user_is_admin_or_error)
+):
     # به روز رسانی زمان استفاده کاربر در reddiss mobin
     search_filter_template = "(cn={})"
     search_filter = search_filter_template.format(data.groupName)
@@ -412,7 +414,7 @@ def deleteUser(data: deleteUserDto, payload: dict = Depends(user_is_admin_or_err
 
 
 @router.get("/userList", response_model=SuccessResponseDto)
-def userList(data: userListDto):
+def userList(data: userListDto, payload: dict = Depends(user_is_admin_or_error)):
     try:
         groupDN = f"cn={data.groupName},ou=users,{dbData.get('BASE_DN')}"
         print(groupDN)
