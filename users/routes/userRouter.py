@@ -357,13 +357,12 @@ def updateUserInfo(data: updateUserDto):
                 print(
                     f"User '{data.id}' gidNumber changed to '{newGidNumber}' successfully!"
                 )
-            # return True
-            # return False
 
     if DbConnection.modify(new_group_dn, {"memberUid": [(MODIFY_ADD, [data.id])]}):
         print(f"User '{data.id}' moved to group '{new_group_dn}' successfully!")
     if changes:
         DbConnection.modify(user_dn, changes)
+        #پس از اتمام از کامنت هارج شود
         # sendSMS(data.phoneNumber, smsTemplate(data.id, thisPassword))
         if DbConnection.result["description"] != "success":
             raise HTTPException(
@@ -371,24 +370,7 @@ def updateUserInfo(data: updateUserDto):
                 detail=f"Failed to update user: {DbConnection.result['description']}",
             )
 
-    # ارسال اس ام اس به کاربر مجدد با پسورد جدید
-    # search_filter = f'(uid={user_update.user_id})'
-    # search_filter = search_filter_template.format(data.groupName)
-    # print(search_filter)
-    # search = DbConnection.search(
-    #     dbData.get("BASE_DN"),
-    #     search_filter,
-    #     SUBTREE,
-    #     attributes=["gidNumber"],
-    # )
-    # gid_number = DbConnection.entries[0].gidNumber.value
-    # userDN = getUserDN(data.id)
-    # changes = {'gidNumber': [(MODIFY_REPLACE, [gid_number])]}
 
-    # مشکل بررسی شود
-
-    # if DbConnection.modify(userDN, changes):
-    #     return {"data": True, "message": "اطلاعات کاربر با موفقیت به روز رسانی گردید"}
     return {"success": True, "message": "کپچا صحیح است!"}
 
 
