@@ -4,26 +4,33 @@ from pydantic import BaseModel
 
 @dataclass(frozen=True)
 class CreateUserDto(BaseModel):
-    id :str
-    expDate: str
-    groupName : str
-    phoneNumber : str
+    id: str
+    expDate: int
+    groupName: str
+    phoneNumber: str
+
+
 @dataclass(frozen=True)
 class SendOTPDto(BaseModel):
     phoneNumber: str
-    username : str
+    username: str
+
+
 @dataclass(frozen=True)
 class ForgetPasswordDto(BaseModel):
-    otp:str
+    otp: str
     phoneNumber: str
+
+
 @dataclass(frozen=True)
 class captchaDto(BaseModel):
-    captchaId:str
+    captchaId: str
     captchaText: str
-    
+
+
 @dataclass(frozen=True)
 class updateUserDto(BaseModel):
-    id :str
+    id: str
     expDate: str
-    groupName : str
-    phoneNumber : str
+    groupName: str
+    phoneNumber: str
