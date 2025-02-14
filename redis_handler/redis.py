@@ -25,3 +25,19 @@ def redis_get_value(key: str):
 
 def redis_del_value(key: str):
     redis_client.delete(key)
+
+
+def redis_set_as_array(key: str, value: str):
+    redis_client.lpush(key, value)
+
+
+def redis_del_from_array(key: str, value: str):
+    redis_client.lrem(key, 0, value)
+
+
+def redis_get_as_array(key: str):
+    return redis_client.lrange(key, 0, -1)
+
+
+def redis_get_keys_regex(key: str):
+    return redis_client.keys(key + "*")
