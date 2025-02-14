@@ -18,6 +18,7 @@ from shared.functions.uid_generator import generate_uid
 from shared.functions.uid_generator import generate_password
 from shared.functions.sendSMS import sendSMS
 from shared.functions.sendSMS import smsTemplate, otpSmsTemplate
+from users.functions.expiration_handler import add_user_to_redis_sessions
 from users.functions.get_groups_of_user import get_group_of_user
 from users.functions.userInfo import get_oauth_token
 from users.functions.userInfo import get_user_info
@@ -152,14 +153,15 @@ def createUser(data: CreateUserDto):
     )
 
     # 2 ذخیره کاربر در reddis
-    REQUEST_LIMIT_KEY = CREATE_USER_REQUEST_LIMIT_KEY_PREFIX + data.id
-    GUEST_USER_EXISTS_KEY = GUEST_USER_EXISTS_KEY_PREFIX + data.id
-    GET_USER_INFO_KEY = GET_USER_INFO_KEY_PREFIX + data.id
-    redis_set_value(REQUEST_LIMIT_KEY, 1, data.expDate)
-    userInfo = redis_get_value(GET_USER_INFO_KEY)
+    if data.expDate < 1 or data.expDate > 365:
+        raise HTTPException(400, "زمان انقضا باید بین 1 تا 365 باشد")
+
+    EXP_KEY = "USER_EXP:" + data.id
+    redis_set_value(EXP_KEY, 1, data.expDate * 60 * 60 * 24)
+    add_user_to_redis_sessions(EXP_KEY)
     # 3 ارسال پیامک به کاربر
     # sendSMS(data.phoneNumber, smsTemplate(data.id, this_password))
-    return {"data": userInfo}
+    return {"data": True}
 
     # try:
     #     user_info_from_sso = json.loads(redis_get_value(GET_USER_INFO_KEY)["value"])
