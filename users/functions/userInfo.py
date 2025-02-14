@@ -59,7 +59,7 @@ def find_user_by_national_code(national_code: str):
     return {"national_code": national_code, "name": "Test User"}
 
 
-def add_user(uid,  password,  groupName , groupId , this_uid ):
+def add_user(uid,  password,  groupName , groupId , this_uid  , phone):
     print(groupName)
     group_dn = f"cn={groupName},ou=users,{BASE_DN}"
     user_dn = f"uid={uid},ou=users,{BASE_DN}"
@@ -73,6 +73,7 @@ def add_user(uid,  password,  groupName , groupId , this_uid ):
             "uidNumber": groupId, 
             "gidNumber": groupId,  
             "homeDirectory": f"/home/{uid}",
+            "telephoneNumber" : phone
         }
         conn.add(user_dn, attributes=user_attributes)
         print("user Added successfully")

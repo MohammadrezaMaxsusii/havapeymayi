@@ -9,6 +9,8 @@ from users.dto.createUser import (
     SendOTPDto,
     ForgetPasswordDto,
     captchaDto,
+    updateUserDto,
+    
 )
 from db.database import conn as DbConnection
 from db.database import dbData
@@ -33,6 +35,7 @@ from shared.functions.capchaGenerator import (
     generate_captcha_image,
 )
 from users.functions.userInfo import add_user_to_group , add_user
+from shared.functions.getDNs import getUserDN , getGroupDN
 config = configparser.ConfigParser()
 router = APIRouter()
 
@@ -136,18 +139,21 @@ def createUser(data: CreateUserDto ):
     gid_number = DbConnection.entries[0].gidNumber.value
     this_password = generate_password()
     this_uid = generate_uid()
-    add_user(data.id,create_ssha_password(this_password) , data.groupName,gid_number , this_uid)
+    add_user(data.id,create_ssha_password(this_password) , data.groupName,gid_number , this_uid , data.phoneNumber)
 
-    return {
-        "data":gid_number
-    }
+
     #2 ذخیره کاربر در reddis
+    REQUEST_LIMIT_KEY = CREATE_USER_REQUEST_LIMIT_KEY_PREFIX + data.id
+    GUEST_USER_EXISTS_KEY = GUEST_USER_EXISTS_KEY_PREFIX + data.id
+    GET_USER_INFO_KEY = GET_USER_INFO_KEY_PREFIX + data.id
+    redis_set_value(REQUEST_LIMIT_KEY, 1, data.expDate)
+    userInfo = redis_get_value(GET_USER_INFO_KEY)
     # 3 ارسال پیامک به کاربر
-    sendSMS(data.phoneNumber, smsTemplate(data.id, this_password))
-    
-    # REQUEST_LIMIT_KEY = CREATE_USER_REQUEST_LIMIT_KEY_PREFIX + data.phoneNumber
-    # GUEST_USER_EXISTS_KEY = GUEST_USER_EXISTS_KEY_PREFIX + data.phoneNumber
-    # GET_USER_INFO_KEY = GET_USER_INFO_KEY_PREFIX + data.phoneNumber
+    # sendSMS(data.phoneNumber, smsTemplate(data.id, this_password))
+    return {
+        "data":userInfo
+    }
+
 
     # try:
     #     user_info_from_sso = json.loads(redis_get_value(GET_USER_INFO_KEY)["value"])
@@ -285,4 +291,30 @@ def validate_captcha(data: captchaDto):
 
 @router.put("/test", response_model=SuccessResponseDto)
 def test():
+    return {"success": True, "message": "کپچا صحیح است!"}
+
+@router.post("/updateUserInfo" ,response_model=SuccessResponseDto )
+def updateUserInfo(data: updateUserDto ):
+    #به روز رسانی زمان استفاده کاربر در reddiss mobin
+    
+
+    search_filter_template = "(cn={})"
+    search_filter = search_filter_template.format(data.groupName)
+    search = DbConnection.search(
+        dbData.get("BASE_DN"),
+        search_filter,
+        SUBTREE,
+        attributes=["gidNumber"],
+    )
+    gid_number = DbConnection.entries[0].gidNumber.value
+    userDN = getUserDN(data.id)
+    changes = {'gidNumber': [(MODIFY_REPLACE, [gid_number])]}
+    
+    #مشکل بررسی شود
+    DbConnection.modify(userDN, changes)
+
+        
+        
+    # if DbConnection.modify(userDN, changes):
+    #     return {"data": True, "message": "اطلاعات کاربر با موفقیت به روز رسانی گردید"}
     return {"success": True, "message": "کپچا صحیح است!"}

@@ -20,3 +20,10 @@ class ForgetPasswordDto(BaseModel):
 class captchaDto(BaseModel):
     captchaId:str
     captchaText: str
+    
+@dataclass(frozen=True)
+class updateUserDto(BaseModel):
+    id :str
+    expDate: str
+    groupName : str
+    phoneNumber : str
