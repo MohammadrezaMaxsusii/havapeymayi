@@ -39,3 +39,8 @@ class updateUserDto(BaseModel):
 @dataclass(frozen=True)
 class deleteUserDto(BaseModel):
     id: str
+
+
+@dataclass(frozen=True)
+class userListDto(BaseModel):
+    groupName: str

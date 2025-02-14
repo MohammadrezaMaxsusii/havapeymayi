@@ -11,6 +11,7 @@ from users.dto.createUser import (
     captchaDto,
     deleteUserDto,
     updateUserDto,
+    userListDto
 )
 from db.database import conn as DbConnection
 from db.database import dbData
@@ -397,3 +398,28 @@ def delete(data: deleteUserDto):
     DbConnection.delete(userDN)
 
     return {"data": True, "message": "کاربر با موفقیت حذف شد"}
+
+
+@router.get("/userList", response_model=SuccessResponseDto)
+def delete(data: userListDto):
+    try:
+        groupDN = f"cn={data.groupName},ou=users,{dbData.get('BASE_DN')}"
+        print(groupDN)
+        search_filter = f'(cn={data.groupName})'
+        DbConnection.search(dbData.get("BASE_DN"), search_filter, attributes=['memberUid', 'member'])
+        print(DbConnection.entries)
+        if not DbConnection.entries:
+            raise HTTPException(404, "گروه پیدا نشد")
+            
+        group_entry = DbConnection.entries[0]
+        members = []
+
+        if 'memberUid' in group_entry.entry_attributes_as_dict:
+            members = group_entry.entry_attributes_as_dict['memberUid']
+        elif 'member' in group_entry.entry_attributes_as_dict:
+            members = group_entry.entry_attributes_as_dict['member']
+        return {"data": members }
+
+    except Exception as e:
+        print(f"Error retrieving users: {e}")
+        raise HTTPException(404, "مشکلی در بازیابی اطلاعات به وجود آمده است")
