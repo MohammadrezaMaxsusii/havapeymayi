@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
+from shared.auth.user_is_admin_or_error import user_is_admin_or_error
 from shared.dto.response.api_responseDto import SuccessResponseDto
 from shared.functions.generate_otp import generate_otp
 from shared.functions.convert_phoneNumbser import ensure_phone_number
@@ -379,7 +380,7 @@ def updateUserInfo(data: updateUserDto):
 
 
 @router.post("/delete", response_model=SuccessResponseDto)
-def deleteUser(data: deleteUserDto):
+def deleteUser(data: deleteUserDto, payload: dict = Depends(user_is_admin_or_error)):
     search_filter = f"(&(objectClass=person)(|(uid={data.id})))"
     search = DbConnection.search(
         dbData.get("BASE_DN"),
@@ -411,7 +412,7 @@ def deleteUser(data: deleteUserDto):
 
 
 @router.get("/userList", response_model=SuccessResponseDto)
-def delete(data: userListDto):
+def userList(data: userListDto):
     try:
         groupDN = f"cn={data.groupName},ou=users,{dbData.get('BASE_DN')}"
         print(groupDN)

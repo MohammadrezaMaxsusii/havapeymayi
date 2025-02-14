@@ -49,11 +49,14 @@ def remove_expired_sessions():
 
     for this_session in all_sessions:
         if this_session not in user_sessions:
-            print(f"Removing session: {this_session}")
+            try:
+                print(f"Removing session: {this_session}")
 
-            user_id = this_session.split(":")[1]
-            deleteUser(deleteUserDto(id=user_id))
-            remove_user_from_redis_sessions(this_session)
+                user_id = this_session.split(":")[1]
+                deleteUser(deleteUserDto(id=user_id))
+                remove_user_from_redis_sessions(this_session)
+            except Exception as e:
+                print(f"Error removing session: {e}")
 
 
 duration = int(getConfigFile("interval_remove_session", "MINUTE"))
