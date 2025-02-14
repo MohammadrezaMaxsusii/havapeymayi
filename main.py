@@ -8,11 +8,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from middleware.responseFormatter import IPFilterMiddleware
 from seeder.seeder import seeder
 from apscheduler.schedulers.background import BackgroundScheduler
+from users.dto.createUser import deleteUserDto
 from users.functions.expiration_handler import (
     ALL_USERS_SESSIONS_LIST_REDIS_KEY,
     remove_user_from_redis_sessions,
 )
-from users.routes.userRouter import EACH_USER_SESSION_EXP_KEY
+from users.routes.userRouter import EACH_USER_SESSION_EXP_KEY, deleteUser
 
 ipfilter = IPFilterMiddleware
 app = FastAPI()
@@ -48,6 +49,10 @@ def remove_expired_sessions():
 
     for this_session in all_sessions:
         if this_session not in user_sessions:
+            print(f"Removing session: {this_session}")
+
+            user_id = this_session.split(":")[1]
+            deleteUser(deleteUserDto(id=user_id))
             remove_user_from_redis_sessions(this_session)
 
 

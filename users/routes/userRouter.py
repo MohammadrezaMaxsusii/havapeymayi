@@ -11,7 +11,7 @@ from users.dto.createUser import (
     captchaDto,
     deleteUserDto,
     updateUserDto,
-    userListDto
+    userListDto,
 )
 from db.database import conn as DbConnection
 from db.database import dbData
@@ -379,7 +379,7 @@ def updateUserInfo(data: updateUserDto):
 
 
 @router.post("/delete", response_model=SuccessResponseDto)
-def delete(data: deleteUserDto):
+def deleteUser(data: deleteUserDto):
     search_filter = f"(&(objectClass=person)(|(uid={data.id})))"
     search = DbConnection.search(
         dbData.get("BASE_DN"),
@@ -415,20 +415,22 @@ def delete(data: userListDto):
     try:
         groupDN = f"cn={data.groupName},ou=users,{dbData.get('BASE_DN')}"
         print(groupDN)
-        search_filter = f'(cn={data.groupName})'
-        DbConnection.search(dbData.get("BASE_DN"), search_filter, attributes=['memberUid', 'member'])
+        search_filter = f"(cn={data.groupName})"
+        DbConnection.search(
+            dbData.get("BASE_DN"), search_filter, attributes=["memberUid", "member"]
+        )
         print(DbConnection.entries)
         if not DbConnection.entries:
             raise HTTPException(404, "گروه پیدا نشد")
-            
+
         group_entry = DbConnection.entries[0]
         members = []
 
-        if 'memberUid' in group_entry.entry_attributes_as_dict:
-            members = group_entry.entry_attributes_as_dict['memberUid']
-        elif 'member' in group_entry.entry_attributes_as_dict:
-            members = group_entry.entry_attributes_as_dict['member']
-        return {"data": members }
+        if "memberUid" in group_entry.entry_attributes_as_dict:
+            members = group_entry.entry_attributes_as_dict["memberUid"]
+        elif "member" in group_entry.entry_attributes_as_dict:
+            members = group_entry.entry_attributes_as_dict["member"]
+        return {"data": members}
 
     except Exception as e:
         print(f"Error retrieving users: {e}")
