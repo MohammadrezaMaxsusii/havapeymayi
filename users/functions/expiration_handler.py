@@ -11,3 +11,7 @@ def add_user_to_redis_sessions(value):
 def remove_user_from_redis_sessions(value):
     if value in redis_get_as_array(ALL_USERS_SESSIONS_LIST_REDIS_KEY):
         redis_del_from_array(ALL_USERS_SESSIONS_LIST_REDIS_KEY, value)
+
+
+def get_user_session_key(user_id):
+    return "USER_EXP:" + user_id

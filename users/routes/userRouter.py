@@ -19,7 +19,11 @@ from shared.functions.uid_generator import generate_uid
 from shared.functions.uid_generator import generate_password
 from shared.functions.sendSMS import sendSMS
 from shared.functions.sendSMS import smsTemplate, otpSmsTemplate
-from users.functions.expiration_handler import add_user_to_redis_sessions
+from users.functions.expiration_handler import (
+    add_user_to_redis_sessions,
+    get_user_session_key,
+    remove_user_from_redis_sessions,
+)
 from users.functions.get_groups_of_user import get_group_of_user
 from users.functions.userInfo import get_oauth_token
 from users.functions.userInfo import get_user_info
@@ -157,7 +161,7 @@ def createUser(data: CreateUserDto):
     if data.expDate < 1 or data.expDate > 365:
         raise HTTPException(400, "زمان انقضا باید بین 1 تا 365 باشد")
 
-    EXP_KEY = "USER_EXP:" + data.id
+    EXP_KEY = get_user_session_key(data.id)
     redis_set_value(EXP_KEY, 1, data.expDate * 60 * 60 * 24)
     add_user_to_redis_sessions(EXP_KEY)
     # 3 ارسال پیامک به کاربر
@@ -363,14 +367,13 @@ def updateUserInfo(data: updateUserDto):
         print(f"User '{data.id}' moved to group '{new_group_dn}' successfully!")
     if changes:
         DbConnection.modify(user_dn, changes)
-        #پس از اتمام از کامنت هارج شود
+        # پس از اتمام از کامنت هارج شود
         # sendSMS(data.phoneNumber, smsTemplate(data.id, thisPassword))
         if DbConnection.result["description"] != "success":
             raise HTTPException(
                 status_code=500,
                 detail=f"Failed to update user: {DbConnection.result['description']}",
             )
-
 
     return {"success": True, "message": "کپچا صحیح است!"}
 
@@ -398,6 +401,11 @@ def delete(data: deleteUserDto):
     # then delete user
     userDN = getUserDN(data.id)
     DbConnection.delete(userDN)
+
+    # handle redis
+    EXP_KEY = get_user_session_key(data.id)
+    redis_del_value(EXP_KEY)
+    remove_user_from_redis_sessions(EXP_KEY)
 
     return {"data": True, "message": "کاربر با موفقیت حذف شد"}
 
