@@ -31,6 +31,6 @@ class captchaDto(BaseModel):
 @dataclass(frozen=True)
 class updateUserDto(BaseModel):
     id: str
-    expDate: str
+    expDate: int
     groupName: str
     phoneNumber: str
