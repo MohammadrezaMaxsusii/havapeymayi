@@ -54,6 +54,7 @@ CREATE_USER_REQUEST_LIMIT_KEY_PREFIX = "CREATE_USER_REQUEST_LIMIT_KEY:"
 GUEST_USER_EXISTS_KEY_PREFIX = "GUEST_USER_EXISTS_KEY:"
 GET_USER_INFO_KEY_PREFIX = "GET_USER_INFO_KEY:"
 OTP_PREFIX = "OTP_KEY:"
+EACH_USER_SESSION_EXP_KEY = "USER_EXP:"
 
 
 @router.get("/sso_login")
@@ -150,8 +151,8 @@ def createUser(data: CreateUserDto):
     )
 
     # 2 ذخیره کاربر در redis
-    EXP_KEY = "USER_EXP:" + data.id
-    redis_set_value(EXP_KEY, 1, data.expDate * 60 * 60 * 24)
+    EXP_KEY = EACH_USER_SESSION_EXP_KEY + data.id
+    redis_set_value(EXP_KEY, 1, data.expDate)
     add_user_to_redis_sessions(EXP_KEY)
 
     # 3 ارسال پیامک به کاربر
