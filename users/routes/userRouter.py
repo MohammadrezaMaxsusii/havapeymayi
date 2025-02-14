@@ -22,7 +22,7 @@ from users.functions.userInfo import get_oauth_token
 from users.functions.userInfo import get_user_info
 from users.functions.userInfo import find_user_by_national_code
 from db.database import create_ssha_password
-from ldap3 import SUBTREE, MODIFY_ADD, MODIFY_REPLACE
+from ldap3 import SUBTREE, MODIFY_ADD, MODIFY_REPLACE , MODIFY_DELETE
 import jwt
 from starlette.responses import RedirectResponse
 import configparser
@@ -34,7 +34,7 @@ from shared.functions.capchaGenerator import (
     generate_captcha_text,
     generate_captcha_image,
 )
-from users.functions.userInfo import add_user_to_group , add_user
+from users.functions.userInfo import add_user_to_group , add_user , update_cn
 from shared.functions.getDNs import getUserDN , getGroupDN
 config = configparser.ConfigParser()
 router = APIRouter()
@@ -296,8 +296,6 @@ def test():
 @router.post("/updateUserInfo" ,response_model=SuccessResponseDto )
 def updateUserInfo(data: updateUserDto ):
     #به روز رسانی زمان استفاده کاربر در reddiss mobin
-    
-
     search_filter_template = "(cn={})"
     search_filter = search_filter_template.format(data.groupName)
     search = DbConnection.search(
@@ -306,12 +304,64 @@ def updateUserInfo(data: updateUserDto ):
         SUBTREE,
         attributes=["gidNumber"],
     )
-    gid_number = DbConnection.entries[0].gidNumber.value
-    userDN = getUserDN(data.id)
-    changes = {'gidNumber': [(MODIFY_REPLACE, [gid_number])]}
+    newGidNumber = DbConnection.entries[0].gidNumber.value
+    print(newGidNumber)
+    search_filter = f'(uid={data.id})'
+    DbConnection.search(dbData.get("BASE_DN"), search_filter, attributes=['telephoneNumber', 'cn', 'userPassword' ])
+    if not DbConnection.entries:
+            raise HTTPException(status_code=404, detail="کاربر با این مشخصات یافت نشد")
+    user_dn = DbConnection.entries[0].entry_dn
+    changes = {}
+    if data.phoneNumber:
+        changes['telephoneNumber'] = [(MODIFY_REPLACE, [data.phoneNumber])]
+    
+    search_filter = f'(memberUid={data.id})'
+    DbConnection.search(dbData.get("BASE_DN"), search_filter, attributes=['cn'])
+    thisPassword = generate_password()
+    changes['userPassword'] = [(MODIFY_REPLACE, [thisPassword])]
+    new_group_dn = ""
+    for entry in DbConnection.entries:
+        old_group_dn = entry.entry_dn
+        new_group_dn = update_cn(old_group_dn, data.groupName)
+        
+        if  DbConnection.modify(old_group_dn, {'memberUid': [(MODIFY_DELETE, [data.id])]}):
+            user_search_filter = f'(uid={data.id})'
+            DbConnection.search(dbData.get("BASE_DN"), user_search_filter, attributes=['gidNumber'])
+            print(DbConnection.entries)
+            if not DbConnection.entries:
+                print(f"User '{data.id}' not found!")
+            user_dn = DbConnection.entries[0].entry_dn
+            print(user_dn)
+            if DbConnection.modify(user_dn, {'gidNumber': [(MODIFY_REPLACE, [str(newGidNumber)])]}):
+                print(f"User '{data.id}' gidNumber changed to '{newGidNumber}' successfully!")
+            # return True
+            # return False
+            
+            
+    if DbConnection.modify(new_group_dn, {'memberUid': [(MODIFY_ADD, [data.id])]}):
+            print(f"User '{data.id}' moved to group '{new_group_dn}' successfully!")
+    if changes:
+        DbConnection.modify(user_dn, changes)
+        # sendSMS(data.phoneNumber, smsTemplate(data.id, thisPassword))
+        if DbConnection.result['description'] != 'success':
+            raise HTTPException(status_code=500, detail=f"Failed to update user: {DbConnection.result['description']}")
+    
+    #ارسال اس ام اس به کاربر مجدد با پسورد جدید
+    # search_filter = f'(uid={user_update.user_id})'
+    # search_filter = search_filter_template.format(data.groupName)
+    # print(search_filter)
+    # search = DbConnection.search(
+    #     dbData.get("BASE_DN"),
+    #     search_filter,
+    #     SUBTREE,
+    #     attributes=["gidNumber"],
+    # )
+    # gid_number = DbConnection.entries[0].gidNumber.value
+    # userDN = getUserDN(data.id)
+    # changes = {'gidNumber': [(MODIFY_REPLACE, [gid_number])]}
     
     #مشکل بررسی شود
-    DbConnection.modify(userDN, changes)
+    
 
         
         

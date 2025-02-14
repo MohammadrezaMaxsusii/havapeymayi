@@ -99,3 +99,11 @@ def add_user_to_group( group_dn, user_uid ):
         
         
 
+def update_cn(original_text, new_value):
+    # پیدا کردن موقعیت 'cn=' و اولین کاما
+    if original_text.startswith("cn="):
+        first_comma = original_text.find(",")
+        if first_comma != -1:
+            # ساخت رشته جدید با مقدار جدید
+            return f"cn={new_value}{original_text[first_comma:]}"
+    return original_text
