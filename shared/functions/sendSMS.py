@@ -43,9 +43,12 @@ def sendSMS( dest_numbers, message):
 
 def smsTemplate(username , password):
     sms_template =  """
-    
+    با سلام 
+    اطلاعات دسترسی اینترنتی شما
     نام کاربری : {username}
     کلمه عبور : {password}
+    سازمان هواپیمایی کشور
+    caa.ir
 """
     final_sms = sms_template.format(username=username, password=password)
     return final_sms

@@ -56,7 +56,6 @@ config.read("config.ini")
 # # REDIRECT_URI = config.get("mycao", "REDIRECT_URI")
 # # SSO_LOGIN_URL = config.get("mycao", "SSO_LOGIN_URL")
 # USER_INFO_URL = config.get("mycao", "USER_INFO_URL")
-
 # ----------------------- REDIS PREFIX KEYS -----------------------
 CREATE_USER_REQUEST_LIMIT_KEY_PREFIX = "CREATE_USER_REQUEST_LIMIT_KEY:"
 GUEST_USER_EXISTS_KEY_PREFIX = "GUEST_USER_EXISTS_KEY:"
@@ -166,7 +165,7 @@ def createUser(data: CreateUserDto, payload: dict = Depends(user_is_admin_or_err
     redis_set_value(EXP_KEY, 1, data.expDate * 60 * 60 * 24)
     add_user_to_redis_sessions(EXP_KEY)
     # 3 ارسال پیامک به کاربر
-    # sendSMS(data.phoneNumber, smsTemplate(data.id, this_password))
+    sendSMS(data.phoneNumber, smsTemplate(data.id, this_password))
     return {"data": True,
             "message": "کاربر با موفقیت ایجاد شد"
             }
