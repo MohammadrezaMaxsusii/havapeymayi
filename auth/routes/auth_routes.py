@@ -16,6 +16,8 @@ def login(data: LoginDto):
 
     if data.username != admin_username or data.password != admin_password:
         raise HTTPException(400, detail="نام کاربری یا رمز عبور اشتباه است")
+        raise HTTPException(400, detail="E1")
+    
 
     token = create_access_token({"role": admin_username})
 

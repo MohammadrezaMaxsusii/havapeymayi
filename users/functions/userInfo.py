@@ -14,10 +14,10 @@ DB_USER = getConfigFile("database", "DB_USER")
 
 DB_PASSWORD = getConfigFile("database", "DB_PASSWORD")
 
-OAUTH_URL = getConfigFile("mycao", "OAUTH_URL")
-CLIENT_ID = getConfigFile("mycao", "CLIENT_ID")
-CLIENT_SECRET = getConfigFile("mycao", "CLIENT_SECRET")
-REDIRECT_URI = getConfigFile("mycao", "REDIRECT_URI")
+# OAUTH_URL = getConfigFile("mycao", "OAUTH_URL")
+# CLIENT_ID = getConfigFile("mycao", "CLIENT_ID")
+# CLIENT_SECRET = getConfigFile("mycao", "CLIENT_SECRET")
+# REDIRECT_URI = getConfigFile("mycao", "REDIRECT_URI")
 DAP_SERVER = f"ldap://{DB_HOST}:{DB_PORT}"
 ADMIN_DN = f"cn=admin,dc={DB_USER},dc=com"
 ADMIN_PASSWORD = DB_PASSWORD

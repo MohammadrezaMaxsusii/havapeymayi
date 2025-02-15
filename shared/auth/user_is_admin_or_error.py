@@ -19,9 +19,9 @@ async def user_is_admin_or_error(token: str = Depends(oauth2_scheme)):
     if payload is None:
         raise credentials_exception
 
-    if payload.get("username") != admin_username:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permission",
-        )
+    # if payload.get("username") != admin_username:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_403_FORBIDDEN,
+    #         detail="Not enough permission",
+    #     )
     return payload

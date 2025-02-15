@@ -50,12 +50,12 @@ router = APIRouter()
 
 # ----------------------- SSO CONFIG -----------------------
 config.read("config.ini")
-OAUTH_URL = config.get("mycao", "OAUTH_URL")
-CLIENT_ID = config.get("mycao", "CLIENT_ID")
-CLIENT_SECRET = config.get("mycao", "CLIENT_SECRET")
-REDIRECT_URI = config.get("mycao", "REDIRECT_URI")
-SSO_LOGIN_URL = config.get("mycao", "SSO_LOGIN_URL")
-USER_INFO_URL = config.get("mycao", "USER_INFO_URL")
+# OAUTH_URL = config.get("mycao", "OAUTH_URL")
+# CLIENT_ID = config.get("mycao", "CLIENT_ID")
+# CLIENT_SECRET = config.get("mycao", "CLIENT_SECRET")
+# # REDIRECT_URI = config.get("mycao", "REDIRECT_URI")
+# # SSO_LOGIN_URL = config.get("mycao", "SSO_LOGIN_URL")
+# USER_INFO_URL = config.get("mycao", "USER_INFO_URL")
 
 # ----------------------- REDIS PREFIX KEYS -----------------------
 CREATE_USER_REQUEST_LIMIT_KEY_PREFIX = "CREATE_USER_REQUEST_LIMIT_KEY:"
@@ -65,63 +65,63 @@ OTP_PREFIX = "OTP_KEY:"
 EACH_USER_SESSION_EXP_KEY = "USER_EXP:"
 
 
-@router.get("/sso_login")
-def login_redirect():
-    login_url = (
-        f"{SSO_LOGIN_URL}?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&scope=openid profile&response_type=code&claims="
-        + '{"id_token":{"phone_number":null}}"'
-    )
-    return RedirectResponse(login_url, status_code=302)
+# @router.get("/sso_login")
+# def login_redirect():
+#     login_url = (
+#         f"{SSO_LOGIN_URL}?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&scope=openid profile&response_type=code&claims="
+#         + '{"id_token":{"phone_number":null}}"'
+#     )
+#     return RedirectResponse(login_url, status_code=302)
 
 
-@router.get("/sso_redirect")
-def redirect(request: Request):
-    code = request.query_params.get("code")
-    if not code:
-        return {"error": "No code provided"}
-    token_url = f"{OAUTH_URL}/api/v1/oauth/token?grant_type=authorization_code&code={code}&redirect_uri={REDIRECT_URI}&client_id={CLIENT_ID}&client_secret={CLIENT_SECRET}"
+# @router.get("/sso_redirect")
+# def redirect(request: Request):
+#     code = request.query_params.get("code")
+#     if not code:
+#         return {"error": "No code provided"}
+#     token_url = f"{OAUTH_URL}/api/v1/oauth/token?grant_type=authorization_code&code={code}&redirect_uri={REDIRECT_URI}&client_id={CLIENT_ID}&client_secret={CLIENT_SECRET}"
 
-    token_response = requests.post(
-        token_url,
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-    )
+#     token_response = requests.post(
+#         token_url,
+#         headers={"Content-Type": "application/x-www-form-urlencoded"},
+#     )
 
-    token_data = token_response.json()
-    if "access_token" not in token_data:
-        return {"error": "Failed to get access token"}
+#     token_data = token_response.json()
+#     if "access_token" not in token_data:
+#         return {"error": "Failed to get access token"}
 
-    access_token = token_data.get("access_token")
+#     access_token = token_data.get("access_token")
 
-    id_token = token_data.get("id_token")
-    decodedTokenId = jwt.decode(id_token, options={"verify_signature": False})
+#     id_token = token_data.get("id_token")
+#     decodedTokenId = jwt.decode(id_token, options={"verify_signature": False})
 
-    if decodedTokenId.get("aud") == CLIENT_ID:
-        phone_number = decodedTokenId.get("phone_number")
-    else:
-        return
+#     if decodedTokenId.get("aud") == CLIENT_ID:
+#         phone_number = decodedTokenId.get("phone_number")
+#     else:
+#         return
 
-    userinfo_response = requests.get(
-        USER_INFO_URL, headers={"Authorization": f"Bearer {access_token}"}, verify=False
-    )
-    userinfo = userinfo_response.json()
+#     userinfo_response = requests.get(
+#         USER_INFO_URL, headers={"Authorization": f"Bearer {access_token}"}, verify=False
+#     )
+#     userinfo = userinfo_response.json()
 
-    redis_set_value(
-        GET_USER_INFO_KEY_PREFIX + phone_number,
-        json.dumps(
-            {
-                "first_name": userinfo.get("given_name"),
-                "last_name": userinfo.get("family_name"),
-            }
-        ),
-        60 * 30,
-    )
+#     redis_set_value(
+#         GET_USER_INFO_KEY_PREFIX + phone_number,
+#         json.dumps(
+#             {
+#                 "first_name": userinfo.get("given_name"),
+#                 "last_name": userinfo.get("family_name"),
+#             }
+#         ),
+#         60 * 30,
+#     )
 
-    national_code = userinfo.get("preferred_username")
+#     national_code = userinfo.get("preferred_username")
 
-    if not national_code:
-        raise HTTPException(404, "کد ملی یافت نشد")
+#     if not national_code:
+#         raise HTTPException(404, "کد ملی یافت نشد")
 
-    return RedirectResponse("http://localhost:5173", 302)
+#     return RedirectResponse("http://localhost:5173", 302)
 
 
 @router.post("/create", response_model=SuccessResponseDto)
@@ -167,7 +167,10 @@ def createUser(data: CreateUserDto, payload: dict = Depends(user_is_admin_or_err
     add_user_to_redis_sessions(EXP_KEY)
     # 3 ارسال پیامک به کاربر
     # sendSMS(data.phoneNumber, smsTemplate(data.id, this_password))
-    return {"data": True}
+    return {"data": True,
+            "message": "کاربر با موفقیت ایجاد شد"
+            }
+
 
     # try:
     #     user_info_from_sso = json.loads(redis_get_value(GET_USER_INFO_KEY)["value"])
@@ -378,10 +381,10 @@ def updateUserInfo(
                 detail=f"Failed to update user: {DbConnection.result['description']}",
             )
 
-    return {"success": True, "message": "کپچا صحیح است!"}
+    return {"success": True, "message":"اطلاعات کاربر با موفقیت به روز رسانی گردید"}
 
 
-@router.post("/delete", response_model=SuccessResponseDto)
+@router.post("/deleteUser", response_model=SuccessResponseDto)
 def deleteUser(data: deleteUserDto, payload: dict = Depends(user_is_admin_or_error)):
     search_filter = f"(&(objectClass=person)(|(uid={data.id})))"
     search = DbConnection.search(
