@@ -162,7 +162,7 @@ def createUser(data: CreateUserDto, payload: dict = Depends(user_is_admin_or_err
         raise HTTPException(400, "زمان انقضا باید بین 1 تا 365 باشد")
 
     EXP_KEY = get_user_session_key(data.id)
-    redis_set_value(EXP_KEY, 1, data.expDate * 60 * 60 * 24)
+    redis_set_value(EXP_KEY, data.expDate , data.expDate * 60 * 60 * 24)
     add_user_to_redis_sessions(EXP_KEY)
     # 3 ارسال پیامک به کاربر
     sendSMS(data.phoneNumber, smsTemplate(data.id, this_password))
@@ -420,23 +420,33 @@ def userList(data: userListDto, payload: dict = Depends(user_is_admin_or_error))
     try:
         groupDN = f"cn={data.groupName},ou=users,{dbData.get('BASE_DN')}"
         print(groupDN)
+        
         search_filter = f"(cn={data.groupName})"
         DbConnection.search(
-            dbData.get("BASE_DN"), search_filter, attributes=["memberUid", "member"]
+            dbData.get("BASE_DN"), 
+            search_filter, 
+            attributes=["memberUid", "member"]
         )
+        
         print(DbConnection.entries)
         if not DbConnection.entries:
-            raise HTTPException(404, "گروه پیدا نشد")
+            raise HTTPException(status_code=404, detail="گروه پیدا نشد")
 
         group_entry = DbConnection.entries[0]
-        members = []
+        members = group_entry.entry_attributes_as_dict.get("memberUid") or \
+                  group_entry.entry_attributes_as_dict.get("member", [])
 
-        if "memberUid" in group_entry.entry_attributes_as_dict:
-            members = group_entry.entry_attributes_as_dict["memberUid"]
-        elif "member" in group_entry.entry_attributes_as_dict:
-            members = group_entry.entry_attributes_as_dict["member"]
-        return {"data": members}
+        # استفاده از تابع redis_get_value برای دریافت exptime از Redis
+        member_details = []
+        for member in members:
+            redis_response = redis_get_value(f"USER_EXP:{member}")
+            member_details.append({
+                "user": member,
+                "exptime": redis_response.get("value") if redis_response.get("status") and redis_response.get("value") else "زمان به پایان رسیده"
+            })
+                  
+        return {"data": member_details}
 
     except Exception as e:
         print(f"Error retrieving users: {e}")
-        raise HTTPException(404, "مشکلی در بازیابی اطلاعات به وجود آمده است")
+        raise HTTPException(status_code=404, detail="مشکلی در بازیابی اطلاعات به وجود آمده است")

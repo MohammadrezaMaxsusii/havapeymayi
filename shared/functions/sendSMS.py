@@ -44,11 +44,11 @@ def sendSMS( dest_numbers, message):
 def smsTemplate(username , password):
     sms_template =  """
     با سلام 
-    اطلاعات دسترسی اینترنتی شما
+    اطلاعات دسترسی اینترنتی 
     نام کاربری : {username}
     کلمه عبور : {password}
-    سازمان هواپیمایی کشور
-    caa.ir
+        سازمان هواپیمایی کشور     
+    ssids: CAO  **** CAO-2.4
 """
     final_sms = sms_template.format(username=username, password=password)
     return final_sms
