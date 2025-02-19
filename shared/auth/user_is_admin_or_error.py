@@ -12,7 +12,8 @@ admin_username = getConfigFile("admin_user", "USERNAME")
 async def user_is_admin_or_error(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
+        detail="E11",
+        #مستند : زمان استفاده از توکن احراز هویت به پایان رسیده است
     )
     payload = decode_access_token(token)
 

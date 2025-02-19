@@ -13,7 +13,7 @@ def get_group_of_user(uid):
     )
 
     if not DbConnection.entries:
-        raise HTTPException(status_code=404, detail="کاربر با این مشخصات یافت نشد")
+        raise HTTPException(status_code=404, detail="E7")
 
     DbConnection.search(dbData.get("BASE_DN"), search_filter, attributes=["gidNumber"])
     for entry in DbConnection.entries:

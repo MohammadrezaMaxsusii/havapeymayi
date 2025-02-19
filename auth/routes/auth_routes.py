@@ -15,7 +15,8 @@ def login(data: LoginDto):
     admin_password = getConfigFile("admin_user", "PASSWORD")
 
     if data.username != admin_username or data.password != admin_password:
-        raise HTTPException(400, detail="نام کاربری یا رمز عبور اشتباه است")
+        # raise HTTPException(400, detail="نام کاربری یا رمز عبور اشتباه است")
+        # مستند : نام کاربری یا رمز عبور برای دریافت توکن اشتباه میباشد
         raise HTTPException(400, detail="E1")
     
 

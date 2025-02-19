@@ -136,7 +136,9 @@ def createUser(data: CreateUserDto, payload: dict = Depends(user_is_admin_or_err
         attributes=["uid"],
     )
     if search:
-        raise HTTPException(400, "کاربری با این مشخصات قبلا ثبت شده است")
+        raise HTTPException(400, "E2")
+    #مستند : کاربری با این مشخصات قبلا ثبت شده است 
+        # raise HTTPException(400, "کاربری با این مشخصات قبلا ثبت شده است")
     search_filter_template = "(cn={})"
     search_filter = search_filter_template.format(data.groupName)
     search = DbConnection.search(
@@ -159,13 +161,18 @@ def createUser(data: CreateUserDto, payload: dict = Depends(user_is_admin_or_err
 
     # 2 ذخیره کاربر در reddis
     if data.expDate < 1 or data.expDate > 365:
-        raise HTTPException(400, "زمان انقضا باید بین 1 تا 365 باشد")
+        raise HTTPException(400, "E3")
+    #"زمان انقضا باید بین 1 تا 365 باشد" مستند :
 
     EXP_KEY = get_user_session_key(data.id)
     redis_set_value(EXP_KEY, data.expDate , data.expDate * 60 * 60 * 24)
     add_user_to_redis_sessions(EXP_KEY)
     # 3 ارسال پیامک به کاربر
-    sendSMS(data.phoneNumber, smsTemplate(data.id, this_password))
+    try:
+        sendSMS(data.phoneNumber, smsTemplate(data.id, this_password))
+    except:
+        raise HTTPException(400, "E4")
+    #  در  ساخت یوزر مستند : عدم توانایی در ارسال اس ام اس
     return {"data": True,
             "message": "کاربر با موفقیت ایجاد شد"
             }
@@ -248,68 +255,75 @@ def sendOTP(data: SendOTPDto):
     )
     redis_set_value(GET_USERNAME_BY_CELLPHONE_KEY, data.username, 120)
     if not "caa" in data.username:
-        raise HTTPException(404, "مشخصات شما به عنوان کارمند تعریف نشده است")
+        raise HTTPException(404, "E5")
+    #مستند :"مشخصات شما به عنوان کارمند تعریف نشده است"
     if not search:
-        raise HTTPException(404, "مشخصات شما به عنوان کارمند تعریف نشده است")
-
+        raise HTTPException(404, "E6")
+# مستند : "مشخصات شما به عنوان کارمند تعریف نشده است"
     this_otp = generate_otp()
 
     redis_set_value(OTP_KEY, this_otp, 120)
-    sendSMS(data.phoneNumber, otpSmsTemplate(this_otp))
+    try :
+        
+        sendSMS(data.phoneNumber, otpSmsTemplate(this_otp))
+    except:
+        raise HTTPException(400, "E4")
+    #  در  ساخت یوزر مستند : عدم توانایی در ارسال اس ام اس
+        
 
     return {"message": "کد یکبار مصرف برای شما ارسال شد", "data": True}
 
 
-@router.post("/forgetPassword", response_model=SuccessResponseDto)
-def forgetPassword(data: ForgetPasswordDto):
-    OTP_KEY = OTP_PREFIX + data.phoneNumber
-    GET_USERNAME_BY_CELLPHONE_KEY = "username_of" + data.phoneNumber + ":"
+# @router.post("/forgetPassword", response_model=SuccessResponseDto)
+# def forgetPassword(data: ForgetPasswordDto):
+#     OTP_KEY = OTP_PREFIX + data.phoneNumber
+#     GET_USERNAME_BY_CELLPHONE_KEY = "username_of" + data.phoneNumber + ":"
 
-    if not redis_get_value(OTP_KEY)["status"]:
-        raise HTTPException(400, "کد معتبر نیست")
-    this_uid = redis_get_value(GET_USERNAME_BY_CELLPHONE_KEY)["value"]
-    print(this_uid)
-    redis_del_value(OTP_KEY)
-    this_password = generate_password()
-    user_dn = f"uid={this_uid},ou=users,{dbData.get('BASE_DN')}"
-    DbConnection.modify(
-        user_dn,
-        {"userPassword": [(MODIFY_REPLACE, [create_ssha_password(this_password)])]},
-    )
-    sendSMS(data.phoneNumber, smsTemplate(this_uid, this_password))
-    return {"message": "نام کاربری و رمز عبور برای شما ارسال گردید"}
-
-
-@router.get("/captcha", response_model=SuccessResponseDto)
-def captcha():
-    captcha_text = generate_captcha_text()
-    captcha_id = str(uuid.uuid4())
-
-    redis_set_value(f"captcha:{captcha_id}", captcha_text, ttl=300)
-
-    image_io = generate_captcha_image(captcha_text)
-
-    headers = {"X-Captcha-Id": captcha_id}
-    return Response(
-        content=image_io.getvalue(), media_type="image/png", headers=headers
-    )
+#     if not redis_get_value(OTP_KEY)["status"]:
+#         raise HTTPException(400, "کد معتبر نیست")
+#     this_uid = redis_get_value(GET_USERNAME_BY_CELLPHONE_KEY)["value"]
+#     print(this_uid)
+#     redis_del_value(OTP_KEY)
+#     this_password = generate_password()
+#     user_dn = f"uid={this_uid},ou=users,{dbData.get('BASE_DN')}"
+#     DbConnection.modify(
+#         user_dn,
+#         {"userPassword": [(MODIFY_REPLACE, [create_ssha_password(this_password)])]},
+#     )
+#     sendSMS(data.phoneNumber, smsTemplate(this_uid, this_password))
+#     return {"message": "نام کاربری و رمز عبور برای شما ارسال گردید"}
 
 
-@router.post("/validate_captcha", response_model=SuccessResponseDto)
-def validate_captcha(data: captchaDto):
-    stored_captcha = redis_get_value(f"captcha:{data.captchaId}")
-    print(stored_captcha)
-    print(data.captchaText)
-    if stored_captcha and stored_captcha["value"] == data.captchaText:
-        # redis_del_value(f"captcha:{data.captchaId}")
+# @router.get("/captcha", response_model=SuccessResponseDto)
+# def captcha():
+#     captcha_text = generate_captcha_text()
+#     captcha_id = str(uuid.uuid4())
 
-        return {"success": True, "message": "کپچا صحیح است!"}
-    raise HTTPException(status_code=400, detail="کپچا اشتباه است یا منقضی شده!")
+#     redis_set_value(f"captcha:{captcha_id}", captcha_text, ttl=300)
+
+#     image_io = generate_captcha_image(captcha_text)
+
+#     headers = {"X-Captcha-Id": captcha_id}
+#     return Response(
+#         content=image_io.getvalue(), media_type="image/png", headers=headers
+#     )
 
 
-@router.put("/test", response_model=SuccessResponseDto)
-def test():
-    return {"success": True, "message": "کپچا صحیح است!"}
+# @router.post("/validate_captcha", response_model=SuccessResponseDto)
+# def validate_captcha(data: captchaDto):
+#     stored_captcha = redis_get_value(f"captcha:{data.captchaId}")
+#     print(stored_captcha)
+#     print(data.captchaText)
+#     if stored_captcha and stored_captcha["value"] == data.captchaText:
+#         # redis_del_value(f"captcha:{data.captchaId}")
+
+#         return {"success": True, "message": "کپچا صحیح است!"}
+#     raise HTTPException(status_code=400, detail="کپچا اشتباه است یا منقضی شده!")
+
+
+# @router.put("/test", response_model=SuccessResponseDto)
+# def test():
+#     return {"success": True, "message": "کپچا صحیح است!"}
 
 
 @router.post("/updateUserInfo", response_model=SuccessResponseDto)
@@ -334,7 +348,8 @@ def updateUserInfo(
         attributes=["telephoneNumber", "cn", "userPassword"],
     )
     if not DbConnection.entries:
-        raise HTTPException(status_code=404, detail="کاربر با این مشخصات یافت نشد")
+        raise HTTPException(status_code=404, detail="E7")
+    #مستند "کاربر با این مشخصات یافت نشد"
     user_dn = DbConnection.entries[0].entry_dn
     changes = {}
     if data.phoneNumber:
@@ -377,8 +392,9 @@ def updateUserInfo(
         if DbConnection.result["description"] != "success":
             raise HTTPException(
                 status_code=500,
-                detail=f"Failed to update user: {DbConnection.result['description']}",
+                detail="E8",
             )
+            #عدم توانمایی در بروزرسانی اطلاعات کاربر 
 
     return {"success": True, "message":"اطلاعات کاربر با موفقیت به روز رسانی گردید"}
 
@@ -394,7 +410,8 @@ def deleteUser(data: deleteUserDto, payload: dict = Depends(user_is_admin_or_err
     )
 
     if not search:
-        raise HTTPException(404, "کاربر پیدا نشد")
+        raise HTTPException(status_code=404, detail="E7")
+    #مستند "کاربر با این مشخصات یافت نشد"
 
     # now delete user from group
     groupName = get_group_of_user(data.id)
@@ -430,8 +447,8 @@ def userList(data: userListDto, payload: dict = Depends(user_is_admin_or_error))
         
         print(DbConnection.entries)
         if not DbConnection.entries:
-            raise HTTPException(status_code=404, detail="گروه پیدا نشد")
-
+            raise HTTPException(status_code=404, detail="E9")
+    #مستند "گروه پیدا نشد"
         group_entry = DbConnection.entries[0]
         members = group_entry.entry_attributes_as_dict.get("memberUid") or \
                   group_entry.entry_attributes_as_dict.get("member", [])
@@ -449,4 +466,5 @@ def userList(data: userListDto, payload: dict = Depends(user_is_admin_or_error))
 
     except Exception as e:
         print(f"Error retrieving users: {e}")
-        raise HTTPException(status_code=404, detail="مشکلی در بازیابی اطلاعات به وجود آمده است")
+        raise HTTPException(status_code=404, detail="E10")
+        #مستند : "مشکلی در بازیابی اطلاعات به وجود آمده است"
