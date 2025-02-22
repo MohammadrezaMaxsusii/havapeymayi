@@ -8,13 +8,13 @@ ORGANIZATION = config.get("sms", "ORGANIZATION")
 username = config.get("sms", "USERNAME")
 password = config.get("sms", "PASSWORD")
 shortNum = config.get("sms"  , "SHORTNUMBER")
-
+url = config.get("sms"  , "API_URL")
 from datetime import datetime
 
 def sendSMS( dest_numbers, message):
     dest_numbers = dest_numbers[1:]
     dest_numbers = "98" + dest_numbers
-    url = "http://ws.adpdigital.com/url/send"
+    # url = "http://ws.adpdigital.com/url/send"
     params = {
     "username": username,
     "password": password,
